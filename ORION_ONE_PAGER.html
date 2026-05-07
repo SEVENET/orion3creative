@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Orion 3 Creative — One-Pager de Lanzamiento</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0B1320;
+    --navy-soft: #1a2536;
+    --cyan: #7FEFEF;
+    --cyan-deep: #4dc8c8;
+    --ink: #111111;
+    --muted: #5A6470;
+    --soft: #F4F8FA;
+    --rule: #C7D5DC;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #e6eaee; }
+  body { font-family: "Inter", "Calibri", system-ui, sans-serif; color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  .page {
+    width: 8.5in; min-height: 11in; margin: 24px auto; background: #fff;
+    padding: 0.6in 0.75in; box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    page-break-after: always;
+    display: flex; flex-direction: column;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* Header / footer */
+  .brand-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid var(--cyan); padding-bottom: 8px; margin-bottom: 22px;
+  }
+  .brand-mark { font-family: "Cormorant Garamond", serif; font-weight: 600; color: var(--navy); letter-spacing: 0.18em; font-size: 11pt; }
+  .brand-tagline { font-style: italic; color: var(--muted); font-size: 9pt; }
+  .brand-footer {
+    margin-top: auto; padding-top: 14px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; color: var(--muted); font-size: 9pt;
+  }
+
+  /* Type */
+  .eyebrow { font-size: 8.5pt; letter-spacing: 0.4em; font-weight: 700; color: var(--cyan-deep); margin-bottom: 4px; }
+  h1.hero { font-family: "Cormorant Garamond", serif; font-size: 44pt; font-weight: 500; color: var(--navy); line-height: 1.05; letter-spacing: -0.01em; margin: 4px 0 14px; }
+  h2 { font-family: "Inter", sans-serif; font-size: 14pt; font-weight: 700; color: var(--navy); margin: 22px 0 10px; letter-spacing: -0.005em; }
+  h3 { font-size: 10.5pt; font-weight: 700; color: var(--navy); margin: 0 0 4px; }
+  p { font-size: 10.5pt; color: var(--ink); margin-bottom: 8px; }
+  p.lede { font-size: 11pt; line-height: 1.55; color: #2a3140; margin-bottom: 12px; }
+  ul { list-style: none; }
+  ul.bul li { position: relative; padding-left: 18px; font-size: 10.5pt; margin-bottom: 5px; line-height: 1.45; }
+  ul.bul li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 8px; height: 8px; background: var(--cyan); border-radius: 50%; }
+
+  /* 3-column pillars */
+  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+  .pillar { background: var(--soft); border: 1px solid var(--rule); border-top: 3px solid var(--cyan); padding: 14px 14px 16px; }
+  .pillar .num { font-family: "Cormorant Garamond", serif; font-size: 22pt; color: var(--cyan-deep); line-height: 1; }
+  .pillar h3 { letter-spacing: 0.08em; font-size: 9pt; margin-top: 4px; }
+  .pillar p { font-size: 9.5pt; line-height: 1.45; color: var(--ink); margin-top: 6px; }
+
+  /* Verticals 2x3 */
+  .verticals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .vert { padding: 12px 14px; border: 1px solid var(--rule); }
+  .vert.alt { background: var(--soft); }
+  .vert h3 { font-size: 10.5pt; margin-bottom: 4px; }
+  .vert p { font-size: 9.5pt; color: var(--ink); margin: 0; line-height: 1.45; }
+
+  /* Team */
+  table.team { border-collapse: collapse; width: 100%; margin-top: 4px; }
+  table.team td { padding: 8px 10px; font-size: 10pt; border-bottom: 1px solid var(--rule); }
+  table.team tr:nth-child(odd) td { background: var(--soft); }
+  table.team td.name { font-weight: 700; color: var(--navy); width: 32%; }
+
+  /* Quote */
+  .closing { text-align: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--cyan); }
+  .closing q { font-family: "Cormorant Garamond", serif; font-style: italic; font-size: 16pt; color: var(--navy); display: block; line-height: 1.4; }
+  .closing q::before, .closing q::after { content: ""; }
+  .closing .sig { margin-top: 8px; font-weight: 700; color: var(--navy); letter-spacing: 0.1em; font-size: 9pt; }
+
+  /* Print */
+  @media print {
+    html, body { background: #fff; }
+    .page { margin: 0; box-shadow: none; }
+    @page { size: Letter; margin: 0.5in; }
+    .page { padding: 0; min-height: auto; }
+  }
+
+  .toolbar {
+    position: fixed; top: 12px; right: 12px; z-index: 999;
+    background: var(--navy); color: #fff; padding: 8px 14px; border-radius: 6px;
+    font-size: 9pt; font-family: "Inter", sans-serif; cursor: pointer; user-select: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .toolbar:hover { background: var(--navy-soft); }
+  @media print { .toolbar { display: none; } }
+</style>
+</head>
+<body>
+
+<button class="toolbar" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+<!-- ============ PAGE 1 ============ -->
+<div class="page">
+  <div class="brand-header">
+    <div class="brand-mark">ORION 3 CREATIVE</div>
+    <div class="brand-tagline">Immersive Visualization · Design the experience.</div>
+  </div>
+
+  <div class="eyebrow">DOCUMENTO DE LANZAMIENTO · 2026</div>
+  <h1 class="hero">La sala que vende por ti.</h1>
+  <p class="lede">
+    Orion 3 Creative construye <strong>Salas de Presentación Inmersivas</strong>: experiencias instalables que reemplazan oficinas de ventas, showrooms y maquetas físicas.
+    Una sola sala genera <strong>tres flujos de ingreso simultáneos</strong> y abre la puerta a un ecosistema de staging virtual, librería 3D, escaneo y ecommerce de muebles.
+  </p>
+
+  <h2>Tres flujos de ingreso en una sola instalación</h2>
+  <div class="pillars">
+    <div class="pillar">
+      <div class="num">1</div>
+      <h3>SETUP</h3>
+      <p>Diseño, render y configuración del espacio físico + experiencia digital. Pago único, alto margen.</p>
+    </div>
+    <div class="pillar">
+      <div class="num">2</div>
+      <h3>SUSCRIPCIÓN</h3>
+      <p>Acceso al sistema, actualizaciones de contenido y soporte. Ingreso recurrente mensual.</p>
+    </div>
+    <div class="pillar">
+      <div class="num">3</div>
+      <h3>COMISIÓN</h3>
+      <p>Cada mueble, propiedad o producto vendido a través de la experiencia paga porcentaje a la sala.</p>
+    </div>
+  </div>
+
+  <h2>Por qué ahora</h2>
+  <ul class="bul">
+    <li>Hardware accesible: Quest 3, Vision Pro y AR web democratizaron la entrada.</li>
+    <li>Render en tiempo real (D5, Unreal) alcanzó calidad fotográfica.</li>
+    <li>Costo de escaneo 3D cayó de miles a cientos por producto.</li>
+    <li>El comprador post-pandemia decide online y espera experiencias inmersivas.</li>
+  </ul>
+
+  <h2>Tracción inmediata</h2>
+  <ul class="bul">
+    <li>Operating Agreement firmado el 1 de mayo de 2026 — equipo fundador consolidado.</li>
+    <li>Demo en producción para Frame Sixty (cliente activo) en 3DVista, D5 Render y pipeline propio.</li>
+    <li>Pipeline integrado: SketchUp → D5 Render → 3DVista → entrega web/VR.</li>
+    <li>Aliado físico-digital: BG Home Staging conecta inventario real con el ecosistema.</li>
+  </ul>
+
+  <div class="brand-footer">
+    <span>orion3creative.com</span>
+    <span>Orion 3 Creative LLC · Lanzamiento 2026 · Página 1</span>
+  </div>
+</div>
+
+<!-- ============ PAGE 2 ============ -->
+<div class="page">
+  <div class="brand-header">
+    <div class="brand-mark">ORION 3 CREATIVE</div>
+    <div class="brand-tagline">Immersive Visualization · Design the experience.</div>
+  </div>
+
+  <h1 class="hero" style="font-size:30pt; margin-bottom:6px;">El ecosistema que se abre con la Sala.</h1>
+  <p style="color: var(--muted); font-style: italic; margin-bottom: 14px; font-size: 10pt;">
+    La Sala es el gancho. Cada vertical paga por sí mismo y se vende mejor cuando el cliente ya entró al sistema.
+  </p>
+
+  <div class="verticals">
+    <div class="vert alt">
+      <h3>Real Estate Experiences</h3>
+      <p>Tours 360°, virtual staging, recorridos en Mixed Reality y maquetas interactivas para developers y realtors.</p>
+    </div>
+    <div class="vert">
+      <h3>Staging + Design System</h3>
+      <p>Amueblamos digitalmente. Cambio de estilo en vivo. Curaduría profesional, no plantillas.</p>
+    </div>
+    <div class="vert">
+      <h3>3D Asset Library</h3>
+      <p>Modelos 3D escaneados de muebles reales. Tier free para captar usuarios, premium para escalar.</p>
+    </div>
+    <div class="vert alt">
+      <h3>Furniture Ecommerce</h3>
+      <p>Comprar el mueble que ves, donde lo ves. Comisión por cada venta. Marketplace inmersivo, no catálogo.</p>
+    </div>
+    <div class="vert alt">
+      <h3>3D Scanning Service</h3>
+      <p>Convertimos productos físicos en gemelos digitales optimizados para VR/AR. Salida glTF y USDZ.</p>
+    </div>
+    <div class="vert">
+      <h3>Orion Platform (2027+)</h3>
+      <p>SaaS + marketplace. Diseñas, visualizas, compras y compartes en una sola plataforma.</p>
+    </div>
+  </div>
+
+  <h2>Impacto</h2>
+  <p>
+    Orion reduce el desperdicio físico del staging tradicional: menos transporte de muebles, menos empaques, menos devoluciones por insatisfacción visual. Multiplica el alcance de diseñadores y artistas a través de la Librería 3D, dándoles canal de distribución frente a catálogos masivos.
+  </p>
+
+  <h2>Equipo Orion 3 Creative LLC</h2>
+  <table class="team">
+    <tr><td class="name">Jennifer Lipman</td><td>Co-Founder · Operations</td></tr>
+    <tr><td class="name">Xander Nicolai</td><td>Co-Founder · Strategy</td></tr>
+    <tr><td class="name">Steffani McCann</td><td>Co-Founder · Design &amp; Staging</td></tr>
+    <tr><td class="name">William Moxham</td><td>Co-Founder · Real Estate</td></tr>
+    <tr><td class="name">Rubén Silva</td><td>Director Técnico · Pipeline 3D / Render / Escaneo / Tours interactivos</td></tr>
+  </table>
+
+  <h2>La oportunidad</h2>
+  <p>
+    Buscamos socios estratégicos y capital para escalar la Sala de Presentación como producto-ancla, completar la Librería 3D al volumen mínimo viable y consolidar el equipo de producción. La inversión inicial alimenta tres frentes: pipeline de escaneo, fuerza de ventas B2B y plataforma SaaS para 2027.
+  </p>
+
+  <h2>Hablemos</h2>
+  <p style="margin-bottom:4px;"><strong>Web ·</strong> orion3creative.com</p>
+  <p style="margin-bottom:4px;"><strong>Director Técnico ·</strong> Rubén Silva — rudasestn@gmail.com</p>
+  <p style="margin-bottom:4px;"><strong>Co-Founders ·</strong> Jennifer Lipman, Xander Nicolai, Steffani McCann, William Moxham</p>
+
+  <div class="closing">
+    <q>Toda experiencia es una decisión. Construyamos la próxima decisión de tu proyecto.</q>
+    <div class="sig">— ORION 3 CREATIVE</div>
+  </div>
+
+  <div class="brand-footer">
+    <span>orion3creative.com</span>
+    <span>Orion 3 Creative LLC · Lanzamiento 2026 · Página 2</span>
+  </div>
+</div>
+
+</body>
+</html>
