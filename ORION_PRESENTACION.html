@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORION 3 CREATIVE — Immersive Visualization Studio</title>
+<meta name="description" content="An immersive visualization studio. We scan, twin and stage your property in real-time mixed reality.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<style>
+:root{
+  --bg:        #06050A;
+  --bg-1:      #0E0C12;
+  --bg-2:      #16131C;
+  --bg-warm:   #1A1610;
+  --line:      rgba(255,248,235,0.10);
+  --line-2:    rgba(255,248,235,0.18);
+  --cyan:      #7FE6E6;
+  --cyan-soft: #A8F0F0;
+  --cyan-deep: #2EBFC4;
+  --amber:     #E8B878;
+  --amber-soft:#F4D29C;
+  --amber-deep:#B88A48;
+  --cream:     #F5EFE3;
+  --cream-soft:#E8E0D0;
+  --warm:      #2A2218;
+  --ink-mute:  #7C7689;
+  --ink-dim:   #A39DAE;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--cream);overflow-x:hidden}
+body{
+  font-family:"Inter",system-ui,sans-serif;
+  font-weight:400;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  cursor:none;
+}
+
+#bg-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:0;pointer-events:none}
+.vignette{
+  position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(ellipse at center, transparent 38%, rgba(6,5,10,0.78) 100%),
+    radial-gradient(ellipse at 30% 25%, rgba(232,184,120,0.05) 0%, transparent 45%);
+}
+.grain{
+  position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.45;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+.scanline{
+  position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.3;
+  background:repeating-linear-gradient(0deg, rgba(255,248,235,0.012) 0 1px, transparent 1px 4px);
+  mix-blend-mode:overlay;
+}
+
+.cursor{
+  position:fixed;left:0;top:0;width:6px;height:6px;border-radius:50%;
+  background:var(--cream);box-shadow:0 0 14px rgba(245,239,227,0.7);
+  pointer-events:none;transform:translate(-50%,-50%);
+  transition:width .25s ease, height .25s ease, background .25s ease;
+  z-index:9999;mix-blend-mode:difference;
+}
+.cursor-ring{
+  position:fixed;left:0;top:0;width:38px;height:38px;border-radius:50%;
+  border:1px solid rgba(232,184,120,0.45);
+  pointer-events:none;transform:translate(-50%,-50%);
+  transition:width .35s ease, height .35s ease, border-color .25s ease;
+  z-index:9998;
+}
+.cursor.hover{width:0;height:0}
+.cursor-ring.hover{width:68px;height:68px;border-color:var(--amber)}
+@media (max-width:780px){.cursor,.cursor-ring{display:none}body{cursor:auto}}
+
+nav.topnav{
+  position:fixed;top:0;left:0;right:0;z-index:50;
+  display:flex;align-items:center;justify-content:space-between;gap:30px;
+  padding:24px 48px;
+  background:linear-gradient(180deg, rgba(6,5,10,0.92), rgba(6,5,10,0));
+  backdrop-filter:blur(14px) saturate(120%);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);
+}
+.brand-mark{
+  display:flex;align-items:baseline;gap:12px;
+  font-family:"Cormorant Garamond",serif;font-weight:500;font-size:20px;letter-spacing:0.18em;
+  color:var(--cream);
+}
+.brand-mark .num{
+  background:linear-gradient(135deg, var(--amber-soft), var(--amber-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  font-style:italic;font-weight:400;
+}
+.brand-mark .sep{font-size:10px;letter-spacing:.32em;color:var(--ink-mute);font-family:"Inter",sans-serif;font-weight:400}
+.nav-meta{
+  display:flex;gap:16px;align-items:center;
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.25em;
+  color:var(--ink-mute);text-transform:uppercase;
+}
+.nav-meta .pulse{
+  width:6px;height:6px;border-radius:50%;background:var(--amber);
+  box-shadow:0 0 12px var(--amber), 0 0 24px rgba(232,184,120,0.4);
+  animation:pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}
+@media (max-width:780px){
+  nav.topnav{padding:16px 22px}
+  .nav-meta{display:none}
+}
+
+.progress{
+  position:fixed;left:0;top:0;height:1px;width:0%;
+  background:linear-gradient(90deg, var(--cyan), var(--amber));
+  z-index:60;box-shadow:0 0 12px rgba(232,184,120,0.5);transition:width .1s linear;
+}
+
+.scene-marker{
+  position:fixed;left:30px;top:50%;transform:translateY(-50%);z-index:30;
+  display:flex;flex-direction:column;gap:14px;
+}
+.scene-marker .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,248,235,0.18);
+  transition:all .4s ease;
+}
+.scene-marker .dot.active{background:var(--amber);box-shadow:0 0 14px var(--amber);transform:scale(1.5)}
+.scene-marker .dot.passed{background:rgba(232,184,120,0.5)}
+.scene-marker .label{
+  position:absolute;left:18px;
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-mute);
+  white-space:nowrap;opacity:0;transform:translateX(-6px);
+  transition:opacity .3s ease, transform .3s ease;pointer-events:none;
+}
+.scene-marker .row{position:relative;display:flex;align-items:center}
+.scene-marker .row.active .label{opacity:1;transform:translateX(0);color:var(--amber)}
+@media (max-width:780px){.scene-marker{display:none}}
+
+main{position:relative;z-index:2}
+.act{
+  position:relative;
+  min-height:100vh;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:120px 8vw 100px;
+  pointer-events:none;
+}
+.act > *{pointer-events:auto}
+.act-tall{min-height:160vh}
+.act .overlay{max-width:760px;will-change:transform}
+.act.center .overlay{margin:0 auto;text-align:center;max-width:920px}
+.act.right .overlay{margin-left:auto;text-align:right}
+
+.eyebrow{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.34em;
+  color:var(--amber);text-transform:uppercase;margin-bottom:24px;font-weight:500;
+  display:inline-flex;align-items:center;gap:14px;
+}
+.eyebrow::before{content:"";width:32px;height:1px;background:var(--amber)}
+.eyebrow.cyan{color:var(--cyan)}
+.eyebrow.cyan::before{background:var(--cyan)}
+
+h1.display{
+  font-family:"Cormorant Garamond",serif;font-weight:300;
+  font-size:clamp(56px,11vw,180px);line-height:0.92;letter-spacing:-0.025em;
+  color:var(--cream);
+}
+h1.display em{
+  font-style:italic;font-weight:400;
+  background:linear-gradient(135deg, var(--amber-soft) 0%, var(--amber) 60%, var(--amber-deep) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+h1.display .cyan{
+  font-style:italic;font-weight:400;
+  background:linear-gradient(135deg, var(--cyan-soft) 0%, var(--cyan) 60%, var(--cyan-deep) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+
+h2.title{
+  font-family:"Cormorant Garamond",serif;font-weight:300;
+  font-size:clamp(40px,7vw,96px);line-height:1;letter-spacing:-0.02em;
+  color:var(--cream);
+}
+h2.title em{
+  font-style:italic;font-weight:400;
+  background:linear-gradient(135deg, var(--amber-soft) 0%, var(--amber) 60%, var(--amber-deep) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+h2.title .cyan{
+  font-style:italic;font-weight:400;
+  background:linear-gradient(135deg, var(--cyan-soft) 0%, var(--cyan) 60%, var(--cyan-deep) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+
+p.lede{
+  font-size:17px;line-height:1.6;color:var(--ink-dim);
+  max-width:540px;font-weight:300;margin-top:30px;
+}
+p.lede b{color:var(--cream);font-weight:400}
+.act.center p.lede{margin-left:auto;margin-right:auto}
+
+.service-chips{
+  display:flex;flex-wrap:wrap;gap:8px;margin-top:32px;max-width:660px;
+}
+.act.center .service-chips{margin-left:auto;margin-right:auto;justify-content:center}
+.chip{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;font-weight:500;
+  padding:8px 14px;border:1px solid var(--line-2);color:var(--ink-dim);
+  background:rgba(255,248,235,0.025);
+  transition:all .3s cubic-bezier(.2,.7,.2,1);
+  position:relative;overflow:hidden;
+}
+.chip::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(135deg, rgba(232,184,120,0.10), rgba(127,230,230,0.08));
+  opacity:0;transition:opacity .35s ease;
+}
+.chip:hover{border-color:var(--amber);color:var(--cream);background:rgba(232,184,120,0.07);transform:translateY(-1px)}
+.chip:hover::before{opacity:1}
+.chip > span{position:relative;z-index:1}
+.chip.cyan{border-color:rgba(127,230,230,0.4);color:var(--cyan-soft);background:rgba(127,230,230,0.05)}
+.chip.cyan:hover{border-color:var(--cyan);background:rgba(127,230,230,0.10)}
+
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:18px;
+  margin-top:48px;padding:18px 36px 18px 28px;
+  background:transparent;border:1px solid var(--line-2);color:var(--cream);
+  font-family:"Inter",sans-serif;font-size:12px;letter-spacing:.34em;text-transform:uppercase;font-weight:500;
+  cursor:none;transition:all .4s cubic-bezier(.2,.7,.2,1);
+  position:relative;overflow:hidden;
+}
+.btn-ghost::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg, transparent, rgba(232,184,120,0.10), transparent);
+  transform:translateX(-100%);transition:transform .8s ease;
+}
+.btn-ghost:hover::before{transform:translateX(100%)}
+.btn-ghost > *{position:relative;z-index:1}
+.btn-ghost .arrow{width:36px;height:1px;background:var(--amber);transition:width .4s ease;position:relative}
+.btn-ghost .arrow::after{
+  content:"";position:absolute;right:0;top:-3px;width:7px;height:7px;
+  border-top:1px solid var(--amber);border-right:1px solid var(--amber);transform:rotate(45deg);
+}
+.btn-ghost:hover{border-color:var(--amber);background:rgba(232,184,120,0.04);letter-spacing:.4em}
+.btn-ghost:hover .arrow{width:54px}
+
+.btn-primary{
+  display:inline-flex;align-items:center;gap:18px;
+  padding:18px 36px;border:1px solid var(--amber);background:transparent;
+  color:var(--cream);font-family:"Inter",sans-serif;font-size:12px;letter-spacing:.4em;
+  text-transform:uppercase;font-weight:500;text-decoration:none;
+  cursor:none;transition:all .4s ease;
+  position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(135deg, rgba(232,184,120,0.10), rgba(127,230,230,0.06));
+  opacity:0;transition:opacity .35s ease;
+}
+.btn-primary:hover::before{opacity:1}
+.btn-primary > *{position:relative;z-index:1}
+.btn-primary:hover{background:rgba(232,184,120,0.06);letter-spacing:.46em;box-shadow:0 0 30px rgba(232,184,120,0.2)}
+.btn-primary .l{width:36px;height:1px;background:var(--amber)}
+
+.act-meta{
+  position:absolute;bottom:40px;right:8vw;
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;
+  color:var(--ink-mute);text-transform:uppercase;display:flex;gap:18px;align-items:center;
+}
+.act-meta .num{color:var(--amber)}
+.scroll-cue{
+  position:absolute;bottom:40px;left:8vw;display:flex;align-items:center;gap:14px;
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;
+  color:var(--ink-mute);text-transform:uppercase;
+}
+.scroll-cue .l{width:0;height:1px;background:var(--amber);animation:cueline 2.4s ease-in-out infinite}
+@keyframes cueline{0%,100%{width:0}50%{width:60px}}
+
+.flow{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:0;
+  margin-top:60px;
+  border:1px solid var(--line);
+  background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:0 30px 80px -30px rgba(0,0,0,0.5);
+}
+@media (max-width:980px){.flow{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.flow{grid-template-columns:1fr}}
+.step{
+  position:relative;padding:36px 26px 32px;
+  border-right:1px solid var(--line);
+  transition:background .4s ease;
+}
+.step:last-child{border-right:none}
+@media (max-width:980px){
+  .step{border-bottom:1px solid var(--line)}
+  .step:last-child{border-bottom:none}
+}
+.step::after{
+  content:"";position:absolute;left:0;top:0;height:1px;width:0;
+  background:linear-gradient(90deg, var(--amber), transparent);
+  transition:width .5s ease;
+}
+.step:hover{background:rgba(232,184,120,0.04)}
+.step:hover::after{width:100%}
+.step .num{
+  font-family:"Cormorant Garamond",serif;font-weight:300;font-style:italic;
+  font-size:42px;line-height:1;margin-bottom:16px;
+  background:linear-gradient(135deg, var(--amber-soft), var(--amber-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.step .label{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;
+  color:var(--cyan);text-transform:uppercase;margin-bottom:8px;font-weight:500;
+}
+.step h4{
+  font-family:"Cormorant Garamond",serif;font-weight:400;font-size:22px;line-height:1.15;
+  color:var(--cream);margin-bottom:8px;
+}
+.step p{font-size:12px;color:var(--ink-mute);font-weight:300;line-height:1.55}
+
+.parallax-stack{position:relative;perspective:1200px}
+.float-card{
+  position:absolute;padding:18px 22px;
+  background:linear-gradient(135deg, rgba(20,17,28,0.85), rgba(14,12,18,0.7));
+  border:1px solid var(--line-2);
+  backdrop-filter:blur(14px) saturate(120%);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);
+  pointer-events:auto;
+  will-change:transform;
+  max-width:240px;
+  box-shadow:0 12px 32px -8px rgba(0,0,0,0.6);
+}
+.float-card::before{
+  content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:2px;
+  background:linear-gradient(180deg, var(--amber-soft), var(--amber-deep));
+  box-shadow:0 0 10px rgba(232,184,120,0.6);
+}
+.float-card.cyan::before{background:linear-gradient(180deg, var(--cyan-soft), var(--cyan-deep));box-shadow:0 0 10px rgba(127,230,230,0.6)}
+.float-card .tag{
+  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.3em;
+  color:var(--amber);text-transform:uppercase;margin-bottom:6px;font-weight:500;
+}
+.float-card.cyan .tag{color:var(--cyan)}
+.float-card h5{
+  font-family:"Cormorant Garamond",serif;font-weight:400;font-size:15px;color:var(--cream);
+  line-height:1.2;
+}
+
+.panel{
+  background:linear-gradient(135deg, rgba(14,12,18,0.7) 0%, rgba(7,6,10,0.65) 100%);
+  border:1px solid var(--line);
+  backdrop-filter:blur(14px) saturate(120%);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);
+  padding:40px 36px;margin-top:50px;
+  box-shadow:0 30px 80px -30px rgba(0,0,0,0.5);
+}
+.panel-head{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;
+  color:var(--amber);text-transform:uppercase;margin-bottom:24px;font-weight:500;
+}
+
+.price-row{
+  display:grid;grid-template-columns:1.5fr 1fr 1.4fr;gap:28px;align-items:center;
+  padding:22px 0;border-bottom:1px solid var(--line);
+  transition:background .3s ease;
+}
+.price-row:last-child{border-bottom:none}
+.price-row:hover{background:rgba(232,184,120,0.025)}
+@media (max-width:780px){.price-row{grid-template-columns:1fr;gap:8px}}
+.price-row .name{font-family:"Cormorant Garamond",serif;font-weight:400;font-size:20px;color:var(--cream)}
+.price-row .name .sub{
+  display:block;font-family:"Inter",sans-serif;font-weight:300;font-size:10px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-mute);margin-top:4px;
+}
+.price-row .amt{
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;color:var(--amber);
+  letter-spacing:.05em;
+}
+.price-row .desc{font-size:12px;color:var(--ink-mute);font-weight:300;line-height:1.55}
+
+.team-grid{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:1px;
+  background:var(--line);border:1px solid var(--line);
+  box-shadow:0 30px 80px -30px rgba(0,0,0,0.5);
+}
+@media (max-width:980px){.team-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.team-grid{grid-template-columns:1fr}}
+.member{
+  background:linear-gradient(180deg, rgba(20,17,28,0.65), rgba(14,12,18,0.7));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  padding:32px 22px 28px;text-align:center;
+  transition:background .4s ease;
+}
+.member:hover{background:linear-gradient(180deg, rgba(28,24,38,0.75), rgba(20,17,28,0.8))}
+.member .av{
+  width:54px;height:54px;border-radius:50%;
+  background:linear-gradient(135deg, var(--cyan) 0%, var(--amber) 100%);
+  margin:0 auto 18px;display:flex;align-items:center;justify-content:center;
+  font-family:"Cormorant Garamond",serif;font-weight:500;font-size:20px;color:var(--bg);font-style:italic;
+  box-shadow:0 0 24px rgba(232,184,120,0.25), inset 0 0 12px rgba(255,255,255,0.2);
+}
+.member h4{font-family:"Cormorant Garamond",serif;font-weight:400;font-size:17px;color:var(--cream);margin-bottom:6px}
+.member .role{
+  font-size:9px;letter-spacing:.26em;text-transform:uppercase;color:var(--amber);font-weight:500;
+  margin-bottom:10px;line-height:1.4;
+}
+.member p{font-size:11px;color:var(--ink-mute);font-weight:300;line-height:1.5}
+
+.contact-grid{
+  display:flex;justify-content:center;gap:50px;flex-wrap:wrap;margin-top:60px;
+  padding-top:40px;border-top:1px solid var(--line);
+}
+.contact-item{font-size:12px;color:var(--ink-dim);font-weight:300}
+.contact-item strong{
+  display:block;color:var(--amber);font-size:10px;letter-spacing:.3em;text-transform:uppercase;
+  font-weight:500;margin-bottom:6px;
+}
+.contact-item a{color:var(--cream);text-decoration:none;transition:color .3s ease}
+.contact-item a:hover{color:var(--amber)}
+
+.about-card{
+  display:grid;grid-template-columns:1.2fr 1fr;gap:60px;align-items:center;
+  padding:60px 56px;
+  background:linear-gradient(135deg, rgba(20,17,28,0.7), rgba(14,12,18,0.65));
+  border:1px solid var(--line);
+  backdrop-filter:blur(14px) saturate(120%);
+  -webkit-backdrop-filter:blur(14px) saturate(120%);
+  box-shadow:0 30px 80px -30px rgba(0,0,0,0.5);
+}
+@media (max-width:880px){.about-card{grid-template-columns:1fr;gap:40px;padding:40px 30px}}
+.about-card h3{
+  font-family:"Cormorant Garamond",serif;font-weight:300;font-size:42px;line-height:1.1;
+  color:var(--cream);margin-bottom:20px;
+}
+.about-card h3 em{
+  font-style:italic;font-weight:400;
+  background:linear-gradient(135deg, var(--amber-soft), var(--amber-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.about-card p{font-size:14px;color:var(--ink-dim);line-height:1.7;margin-bottom:14px;font-weight:300}
+.about-card p b{color:var(--cream);font-weight:400}
+.about-card .stats{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.about-card .stat{
+  padding:24px 20px;background:rgba(7,6,10,0.45);border:1px solid var(--line);
+  transition:all .4s ease;
+}
+.about-card .stat:hover{border-color:rgba(232,184,120,0.3);background:rgba(232,184,120,0.04)}
+.about-card .stat .big{
+  font-family:"Cormorant Garamond",serif;font-style:italic;font-weight:300;
+  font-size:46px;line-height:1;margin-bottom:6px;
+  background:linear-gradient(135deg, var(--amber-soft), var(--amber-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.about-card .stat .label{
+  font-family:"JetBrains Mono",monospace;font-size:9px;letter-spacing:.3em;
+  color:var(--ink-mute);text-transform:uppercase;font-weight:500;
+}
+
+.also-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:var(--line);border:1px solid var(--line);margin-top:40px;
+  box-shadow:0 30px 80px -30px rgba(0,0,0,0.5);
+}
+@media (max-width:780px){.also-grid{grid-template-columns:1fr}}
+.also-cell{
+  background:linear-gradient(180deg, rgba(20,17,28,0.6), rgba(14,12,18,0.65));
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  padding:32px 26px;
+  transition:background .4s ease;
+}
+.also-cell:hover{background:linear-gradient(180deg, rgba(28,24,38,0.7), rgba(20,17,28,0.75))}
+.also-cell .label{
+  font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;
+  color:var(--cyan);text-transform:uppercase;margin-bottom:14px;font-weight:500;
+}
+.also-cell h5{
+  font-family:"Cormorant Garamond",serif;font-weight:400;font-size:22px;line-height:1.2;
+  color:var(--cream);margin-bottom:8px;
+}
+.also-cell p{font-size:12px;color:var(--ink-mute);line-height:1.6;font-weight:300}
+
+.loader{
+  position:fixed;inset:0;z-index:9999;background:var(--bg);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  transition:opacity 1s ease, visibility 1s ease;
+}
+.loader.hidden{opacity:0;visibility:hidden}
+.loader .mark{
+  font-family:"Cormorant Garamond",serif;font-weight:400;font-size:32px;letter-spacing:0.2em;
+  color:var(--cream);margin-bottom:30px;
+}
+.loader .mark .n{
+  background:linear-gradient(135deg, var(--amber-soft), var(--amber-deep));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  font-style:italic;
+}
+.loader .bar{width:200px;height:1px;background:rgba(255,248,235,0.1);position:relative;overflow:hidden}
+.loader .bar::after{
+  content:"";position:absolute;left:0;top:0;height:100%;width:0;
+  background:linear-gradient(90deg, var(--cyan), var(--amber));
+  box-shadow:0 0 14px var(--amber);
+  animation:load 1.6s ease-in-out infinite;
+}
+@keyframes load{0%{width:0;left:0}50%{width:60%;left:20%}100%{width:0;left:100%}}
+.loader .stat{
+  margin-top:18px;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.3em;
+  color:var(--ink-mute);text-transform:uppercase;
+}
+</style>
+</head>
+<body>
+
+<div class="loader" id="loader">
+  <div class="mark">ORION<span class="n">3</span> CREATIVE</div>
+  <div class="bar"></div>
+  <div class="stat">Initializing immersive scene</div>
+</div>
+
+<canvas id="bg-canvas"></canvas>
+<div class="vignette"></div>
+<div class="grain"></div>
+<div class="scanline"></div>
+
+<div class="cursor-ring" id="cursor-ring"></div>
+<div class="cursor" id="cursor"></div>
+
+<nav class="topnav">
+  <div class="brand-mark">ORION<span class="num">3</span><span class="sep">CREATIVE</span></div>
+  <div class="nav-meta">
+    <span class="pulse"></span>
+    <span>Immersive Scene Active</span>
+  </div>
+</nav>
+
+<div class="progress" id="progress"></div>
+
+<div class="scene-marker" id="scene-marker">
+  <div class="row active" data-act="0"><div class="dot active"></div><div class="label">00 · Studio</div></div>
+  <div class="row" data-act="1"><div class="dot"></div><div class="label">01 · The flow</div></div>
+  <div class="row" data-act="2"><div class="dot"></div><div class="label">02 · Scan</div></div>
+  <div class="row" data-act="3"><div class="dot"></div><div class="label">03 · Twin</div></div>
+  <div class="row" data-act="4"><div class="dot"></div><div class="label">04 · Gallery</div></div>
+  <div class="row" data-act="5"><div class="dot"></div><div class="label">05 · Stage</div></div>
+  <div class="row" data-act="6"><div class="dot"></div><div class="label">06 · Library</div></div>
+  <div class="row" data-act="7"><div class="dot"></div><div class="label">07 · Also</div></div>
+  <div class="row" data-act="8"><div class="dot"></div><div class="label">08 · Pricing</div></div>
+  <div class="row" data-act="9"><div class="dot"></div><div class="label">09 · Team</div></div>
+  <div class="row" data-act="10"><div class="dot"></div><div class="label">10 · Talk</div></div>
+</div>
+
+<main>
+
+  <section class="act center" id="act-hero" data-act="0">
+    <div class="parallax-stack" style="position:relative;width:100%">
+      <div class="overlay" data-pf="0.04" data-anim>
+        <div class="eyebrow"><span>An Immersive Visualization Studio · Est. 2026</span></div>
+        <h1 class="display">We <em>scan,</em> <span class="cyan">twin</span><br>and <em>stage</em> your space.</h1>
+        <p class="lede"><b>In real-time mixed reality.</b><br>From the first measurement to the final sale — one continuous immersive experience.</p>
+
+        <div class="service-chips">
+          <span class="chip"><span>Virtual Staging</span></span>
+          <span class="chip"><span>Real Estate</span></span>
+          <span class="chip"><span>Immersive Commerce</span></span>
+          <span class="chip cyan"><span>3D Scanning</span></span>
+          <span class="chip cyan"><span>Asset Library</span></span>
+          <span class="chip cyan"><span>Digital Catalogs</span></span>
+          <span class="chip"><span>Architecture</span></span>
+          <span class="chip"><span>Interior Design</span></span>
+          <span class="chip"><span>Project Presentation</span></span>
+        </div>
+
+        <button class="btn-ghost" onclick="document.getElementById('act-flow').scrollIntoView({behavior:'smooth'})">
+          <span>Begin journey</span><span class="arrow"></span>
+        </button>
+      </div>
+
+      <div class="float-card" data-pf="0.18" style="top:-10%;left:-2%">
+        <div class="tag">// Live</div>
+        <h5>Real-time mixed reality staging</h5>
+      </div>
+      <div class="float-card cyan" data-pf="-0.14" style="top:30%;right:-4%">
+        <div class="tag">// Library</div>
+        <h5>Scanned 3D assets &amp; catalogs</h5>
+      </div>
+      <div class="float-card" data-pf="0.22" style="bottom:-8%;right:8%">
+        <div class="tag">// Subscription</div>
+        <h5>Virtual gallery with privileges</h5>
+      </div>
+    </div>
+
+    <div class="scroll-cue"><span>Scroll to enter</span><span class="l"></span></div>
+    <div class="act-meta"><span class="num">00</span><span>STUDIO</span></div>
+  </section>
+
+  <section class="act act-tall" id="act-flow" data-act="1">
+    <div class="overlay" data-anim>
+      <div class="eyebrow cyan">The Process</div>
+      <h2 class="title">Five steps.<br><em>One continuous experience.</em></h2>
+      <p class="lede">From the moment we step into your property to the moment your buyer signs — every stage flows into the next, in real-time mixed reality.</p>
+
+      <div class="flow">
+        <div class="step">
+          <div class="num">I</div>
+          <div class="label">Scan</div>
+          <h4>We capture</h4>
+          <p>Meta Quest scanning of your property. Inch-perfect spatial capture.</p>
+        </div>
+        <div class="step">
+          <div class="num">II</div>
+          <div class="label">Twin</div>
+          <h4>Digital twin</h4>
+          <p>Your space, reborn as a precise digital model. Optimized for VR &amp; MR.</p>
+        </div>
+        <div class="step">
+          <div class="num">III</div>
+          <div class="label">Gallery</div>
+          <h4>Virtual gallery</h4>
+          <p>Placed in our subscription gallery with member privileges and exposure.</p>
+        </div>
+        <div class="step">
+          <div class="num">IV</div>
+          <div class="label">Stage</div>
+          <h4>Real-time staging</h4>
+          <p>Buyers stage in mixed reality with our scanned furniture library.</p>
+        </div>
+        <div class="step">
+          <div class="num">V</div>
+          <div class="label">Sell</div>
+          <h4>Immersive commerce</h4>
+          <p>Buy what you stage. Pieces ship to the door. Commission flows.</p>
+        </div>
+      </div>
+    </div>
+    <div class="act-meta"><span class="num">01</span><span>THE FLOW</span></div>
+  </section>
+
+  <section class="act" id="act-scan" data-act="2">
+    <div class="overlay" data-anim>
+      <div class="eyebrow">Step I — Scan</div>
+      <h2 class="title">A walk through<br>the <em>real space.</em></h2>
+      <p class="lede">We arrive with <b>Meta Quest</b> and walk the property. In minutes, every wall, window and corner is captured. No measuring tape. No guesswork.</p>
+    </div>
+    <div class="act-meta"><span class="num">02</span><span>SCAN · CAPTURE</span></div>
+  </section>
+
+  <section class="act right" id="act-twin" data-act="3">
+    <div class="overlay" data-anim>
+      <div class="eyebrow">Step II — Twin</div>
+      <h2 class="title">Your property,<br><em>reborn.</em></h2>
+      <p class="lede" style="margin-left:auto">Captured geometry becomes a <b>precise digital twin</b>. Light-weight enough for any device. Detailed enough to feel like home.</p>
+    </div>
+    <div class="act-meta"><span class="num">03</span><span>TWIN · DIGITAL MODEL</span></div>
+  </section>
+
+  <section class="act" id="act-gallery" data-act="4">
+    <div class="overlay" data-anim>
+      <div class="eyebrow">Step III — Gallery</div>
+      <h2 class="title">A gallery<br>with <em>privileges.</em></h2>
+      <p class="lede">Your property joins our <b>virtual gallery</b>. Subscribers — agents, investors, design studios — explore it in VR before any visit. Exposure becomes recurring revenue.</p>
+      <div class="service-chips" style="margin-top:36px">
+        <span class="chip"><span>Member access</span></span>
+        <span class="chip"><span>Verified buyers</span></span>
+        <span class="chip"><span>Curator picks</span></span>
+        <span class="chip cyan"><span>Subscription tiers</span></span>
+      </div>
+    </div>
+    <div class="act-meta"><span class="num">04</span><span>GALLERY · MEMBERSHIP</span></div>
+  </section>
+
+  <section class="act act-tall right" id="act-stage" data-act="5">
+    <div class="overlay" data-anim>
+      <div class="eyebrow cyan">Step IV — Stage · The star of the show</div>
+      <h2 class="title">Stage it<br>in <em>real time.</em></h2>
+      <p class="lede" style="margin-left:auto">Inside the virtual gallery, the buyer puts on a headset and <b>stages the empty space themselves</b>. Pull furniture from our scanned library. Drop. Rearrange. Switch styles. All in mixed reality, all live.</p>
+      <p class="lede" style="margin-left:auto"><b>This is what nobody else does.</b></p>
+    </div>
+    <div class="act-meta"><span class="num">05</span><span>STAGE · REAL-TIME MR</span></div>
+  </section>
+
+  <section class="act" id="act-library" data-act="6">
+    <div class="overlay" data-anim>
+      <div class="eyebrow">Step V — Library</div>
+      <h2 class="title">A scanned<br><em>universe</em> of pieces.</h2>
+      <p class="lede">Every item scanned from real products. Curated catalogs by style, mood and price. <b>Anchored to the space.</b> Click any piece — purchase ships to the door, commission flows back.</p>
+    </div>
+    <div class="act-meta"><span class="num">06</span><span>LIBRARY · COMMERCE</span></div>
+  </section>
+
+  <section class="act" id="act-also" data-act="7">
+    <div class="overlay" data-anim style="max-width:1200px">
+      <div class="eyebrow">We also work in</div>
+      <h2 class="title">The same engine.<br><em>Adjacent disciplines.</em></h2>
+      <p class="lede">The technology that powers the gallery extends to other immersive needs. Same studio, same craftsmanship.</p>
+
+      <div class="also-grid">
+        <div class="also-cell">
+          <div class="label">Architecture</div>
+          <h5>Architectural visualization</h5>
+          <p>Immersive walkthroughs of architectural projects in VR / MR.</p>
+        </div>
+        <div class="also-cell">
+          <div class="label">Interior</div>
+          <h5>Interior design</h5>
+          <p>Curated interiors, materials and styles you can step into.</p>
+        </div>
+        <div class="also-cell">
+          <div class="label">Presentation</div>
+          <h5>Project presentation</h5>
+          <p>Immersive demos for investors, clients and stakeholders.</p>
+        </div>
+      </div>
+    </div>
+    <div class="act-meta"><span class="num">07</span><span>ADJACENT</span></div>
+  </section>
+
+  <section class="act" id="act-pricing" data-act="8">
+    <div class="overlay" data-anim style="max-width:1200px">
+      <div class="eyebrow">About &amp; Pricing</div>
+      <h2 class="title">Clear numbers.<br><em>Clear scope.</em></h2>
+
+      <div class="about-card" style="margin-top:50px">
+        <div>
+          <h3>An <em>immersive visualization studio.</em> Built around a single idea.</h3>
+          <p>Orion 3 Creative is a small senior team obsessed with a single craft: <b>turning real properties into immersive experiences that sell themselves.</b></p>
+          <p>The flow is the product. The gallery is the marketplace. The library is the catalog. <b>The buyer becomes the stager.</b></p>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="big">5</div><div class="label">Co-Founders</div></div>
+          <div class="stat"><div class="big">2026</div><div class="label">LLC formed</div></div>
+          <div class="stat"><div class="big">∞</div><div class="label">Asset library</div></div>
+          <div class="stat"><div class="big">3×</div><div class="label">Revenue streams</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">// Pricing — Indicative USD</div>
+        <div class="price-row">
+          <div class="name">Virtual Gallery Listing<span class="sub">Anchor product</span></div>
+          <div class="amt">From $1,800 setup + $180–$540/mo</div>
+          <div class="desc">Scan, digital twin and listing in the gallery. Subscription tiers for exposure and privileges.</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Real-Time MR Staging<span class="sub">Per property or per session</span></div>
+          <div class="amt">$400–$1,500 / property</div>
+          <div class="desc">Configured staging session with our scanned library. Multiple style packs available.</div>
+        </div>
+        <div class="price-row">
+          <div class="name">3D Scanning<span class="sub">Property or product</span></div>
+          <div class="amt">$200–$5,000</div>
+          <div class="desc">Spaces and individual products. Delivered as VR/AR-ready digital twins.</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Asset Library Access<span class="sub">Subscription</span></div>
+          <div class="amt">Free + $49–$299/mo</div>
+          <div class="desc">Free tier to start. Premium for designers and studios. Custom B2B catalogs.</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Immersive Commerce<span class="sub">Commission</span></div>
+          <div class="amt">5–12% per sale</div>
+          <div class="desc">Commission on furniture and art sold through the experience. Anchored to the space.</div>
+        </div>
+        <div class="price-row">
+          <div class="name">Architecture / Interior / Presentation<span class="sub">Project-based</span></div>
+          <div class="amt">From $2,500</div>
+          <div class="desc">Immersive visualization for adjacent disciplines. Quoted per scope.</div>
+        </div>
+      </div>
+    </div>
+    <div class="act-meta"><span class="num">08</span><span>PRICING</span></div>
+  </section>
+
+  <section class="act" id="act-team" data-act="9">
+    <div class="overlay" data-anim style="max-width:1200px">
+      <div class="eyebrow">The team</div>
+      <h2 class="title">Five Co-Founders.<br><em>One vision.</em></h2>
+      <p class="lede">Orion 3 Creative LLC. Operating Agreement signed May 2026. Senior team across design, operations, strategy, real estate and immersive product.</p>
+
+      <div class="team-grid" style="margin-top:50px">
+        <div class="member">
+          <div class="av">JL</div>
+          <h4>Jennifer Lipman</h4>
+          <div class="role">Co-Founder · Design · Alliances · Business</div>
+          <p>Design direction, partnerships and business development.</p>
+        </div>
+        <div class="member">
+          <div class="av">SM</div>
+          <h4>Steffani McCann</h4>
+          <div class="role">Co-Founder · Operations · Staging · Sales</div>
+          <p>Operations, physical-digital staging coordination and sales.</p>
+        </div>
+        <div class="member">
+          <div class="av">XN</div>
+          <h4>Xander Nicolai</h4>
+          <div class="role">Co-Founder · Strategy &amp; Scanning</div>
+          <p>Strategy, partnerships and 3D scanning operations.</p>
+        </div>
+        <div class="member">
+          <div class="av">WM</div>
+          <h4>William Moxham</h4>
+          <div class="role">Co-Founder · Manager</div>
+          <p>General management, account direction and real estate.</p>
+        </div>
+        <div class="member">
+          <div class="av">RS</div>
+          <h4>Rubén Silva</h4>
+          <div class="role">Co-Founder · Production · Direction · Immersive Product Development</div>
+          <p>Digital production, technical direction and immersive product development for the platform.</p>
+        </div>
+      </div>
+    </div>
+    <div class="act-meta"><span class="num">09</span><span>TEAM</span></div>
+  </section>
+
+  <section class="act center" id="act-cta" data-act="10">
+    <div class="overlay" data-anim>
+      <div class="eyebrow">Final Act</div>
+      <h2 class="title" style="font-style:italic;font-size:clamp(36px,6vw,80px)">"Every space<br>has a <em>story.</em><br>Let us <span class="cyan">stage it.</span>"</h2>
+      <p class="lede" style="margin-top:36px">Tell us about your property, your project, or your idea — we'll show you how it can become an immersive experience.</p>
+      <a href="mailto:rudasestn@gmail.com?subject=Orion%203%20Creative%20%E2%80%94%20Let%27s%20talk&body=Hi%20Rub%C3%A9n%2C%0A%0AI%20saw%20the%20Orion%203%20Creative%20presentation%20and%20I%27d%20like%20to%20talk%20about%20..." class="btn-primary">
+        <span class="l"></span>Let's talk
+      </a>
+      <div class="contact-grid">
+        <div class="contact-item"><strong>Web</strong><a href="https://orion3creative.com" target="_blank">orion3creative.com</a></div>
+        <div class="contact-item"><strong>Production · Direction</strong><a href="mailto:rudasestn@gmail.com">Rubén Silva</a></div>
+        <div class="contact-item"><strong>Email</strong><a href="mailto:rudasestn@gmail.com">rudasestn@gmail.com</a></div>
+      </div>
+    </div>
+    <div class="act-meta"><span class="num">10</span><span>END · CONTACT</span></div>
+  </section>
+
+</main>
+
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+/* =============================================================
+   THREE.JS — high quality cinematic setup
+   ============================================================= */
+const canvas = document.getElementById('bg-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x06050A, 1);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.physicallyCorrectLights = true;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x06050A, 0.011);
+
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 800);
+camera.position.set(0, 6, 30);
+
+/* === Post-processing — bloom for highlights === */
+const composer = new THREE.EffectComposer(renderer);
+composer.addPass(new THREE.RenderPass(scene, camera));
+const bloomPass = new THREE.UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.55,   // strength — subtle, not overblown
+  0.55,   // radius
+  0.82    // threshold (only brightest pixels bloom)
+);
+composer.addPass(bloomPass);
+
+/* === Cinematic lighting === */
+const ambient = new THREE.AmbientLight(0x2A241C, 0.4);
+scene.add(ambient);
+
+const keyLight = new THREE.DirectionalLight(0xFFE4B5, 0.55);
+keyLight.position.set(20, 30, 18);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 2048;
+keyLight.shadow.mapSize.height = 2048;
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 120;
+keyLight.shadow.camera.left = -40;
+keyLight.shadow.camera.right = 40;
+keyLight.shadow.camera.top = 40;
+keyLight.shadow.camera.bottom = -40;
+keyLight.shadow.bias = -0.0008;
+keyLight.shadow.radius = 4;
+scene.add(keyLight);
+
+const rimCyan = new THREE.PointLight(0x7FE6E6, 1.6, 40, 1.5);
+rimCyan.position.set(-12, 10, -10);
+scene.add(rimCyan);
+
+const warmFill = new THREE.PointLight(0xE8B878, 1.8, 50, 1.4);
+warmFill.position.set(10, 6, 8);
+scene.add(warmFill);
+
+/* === Helpers === */
+const wireMat = (color=0x7FE6E6, op=0.55) => new THREE.LineBasicMaterial({ color, transparent:true, opacity:op });
+const fabricMat = (color, opts={}) => new THREE.MeshPhysicalMaterial({
+  color, roughness: opts.roughness ?? 0.78, metalness: 0.0,
+  sheen: 1.0, sheenColor: new THREE.Color(color).multiplyScalar(0.6),
+  sheenRoughness: 0.5, clearcoat: 0,
+});
+const woodMat = (color, opts={}) => new THREE.MeshPhysicalMaterial({
+  color, roughness: opts.roughness ?? 0.55, metalness: 0.05,
+  clearcoat: 0.18, clearcoatRoughness: 0.45,
+});
+const metalMat = (color, opts={}) => new THREE.MeshPhysicalMaterial({
+  color, roughness: opts.roughness ?? 0.3, metalness: 0.85,
+  clearcoat: 0.5, clearcoatRoughness: 0.2,
+});
+const glassMat = (color, opts={}) => new THREE.MeshPhysicalMaterial({
+  color, roughness: 0.05, metalness: 0.0,
+  transmission: 0.4, opacity: 0.6, transparent: true,
+  ior: 1.4, thickness: 0.5,
+  clearcoat: 1.0, clearcoatRoughness: 0.0,
+});
+const standardMat = (color=0x14131C, opts={}) => new THREE.MeshStandardMaterial({
+  color, roughness: opts.roughness ?? 0.6, metalness: opts.metalness ?? 0.2
+});
+
+/* Rounded box approximation — using BoxGeometry with subdivisions and a slight scale + bevel via overlay */
+function roundedBox(w, h, d, r=0.15, mat){
+  const group = new THREE.Group();
+  const main = new THREE.Mesh(new THREE.BoxGeometry(w-r*2, h, d-r*2), mat);
+  group.add(main);
+  // Add capsule-like edges via overlapping boxes scaled smaller
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w, h-r*2, d-r*2), mat);
+  group.add(top);
+  const side = new THREE.Mesh(new THREE.BoxGeometry(w-r*2, h-r*2, d), mat);
+  group.add(side);
+  // Spheres at corners for soft rounding
+  const sphereGeo = new THREE.SphereGeometry(r, 16, 12);
+  for(let dx of [-1, 1]){
+    for(let dy of [-1, 1]){
+      for(let dz of [-1, 1]){
+        const sphere = new THREE.Mesh(sphereGeo, mat);
+        sphere.position.set(dx*(w/2 - r), dy*(h/2 - r), dz*(d/2 - r));
+        group.add(sphere);
+      }
+    }
+  }
+  // Cylinders at edges
+  const edgeR = r;
+  const edgesData = [
+    // 4 edges along X
+    { axis:'x', len:w-r*2, y: h/2-r, z: d/2-r }, { axis:'x', len:w-r*2, y: h/2-r, z:-(d/2-r) },
+    { axis:'x', len:w-r*2, y:-(h/2-r), z: d/2-r }, { axis:'x', len:w-r*2, y:-(h/2-r), z:-(d/2-r) },
+    // 4 edges along Y
+    { axis:'y', len:h-r*2, x: w/2-r, z: d/2-r }, { axis:'y', len:h-r*2, x: w/2-r, z:-(d/2-r) },
+    { axis:'y', len:h-r*2, x:-(w/2-r), z: d/2-r }, { axis:'y', len:h-r*2, x:-(w/2-r), z:-(d/2-r) },
+    // 4 edges along Z
+    { axis:'z', len:d-r*2, x: w/2-r, y: h/2-r }, { axis:'z', len:d-r*2, x: w/2-r, y:-(h/2-r) },
+    { axis:'z', len:d-r*2, x:-(w/2-r), y: h/2-r }, { axis:'z', len:d-r*2, x:-(w/2-r), y:-(h/2-r) },
+  ];
+  edgesData.forEach(e => {
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(edgeR, edgeR, e.len, 16), mat);
+    if(e.axis === 'x'){ cyl.rotation.z = Math.PI/2; cyl.position.set(0, e.y, e.z); }
+    else if(e.axis === 'y'){ cyl.position.set(e.x, 0, e.z); }
+    else { cyl.rotation.x = Math.PI/2; cyl.position.set(e.x, e.y, 0); }
+    group.add(cyl);
+  });
+  return group;
+}
+
+/* Shadowed mesh helper */
+function withShadows(obj){
+  obj.traverse(c => {
+    if(c.isMesh){ c.castShadow = true; c.receiveShadow = true; }
+  });
+  return obj;
+}
+
+function makeWireBox(w,h,d,mat){
+  return new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w,h,d)), mat);
+}
+function makeBox(w,h,d, mat){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.castShadow = true; m.receiveShadow = true;
+  return m;
+}
+
+/* =============================================================
+   STARS — multi depth field
+   ============================================================= */
+function makeStarLayer(count, radius, size, opacity){
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3);
+  const col = new Float32Array(count*3);
+  for(let i=0;i<count;i++){
+    const r = radius + Math.random()*radius*0.4;
+    const theta = Math.random()*Math.PI*2;
+    const phi = Math.acos(Math.random()*2-1);
+    pos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+    pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+    pos[i*3+2] = r*Math.cos(phi) - radius*0.3;
+    const t = Math.random();
+    if(t < 0.6){ col[i*3]=1; col[i*3+1]=1; col[i*3+2]=0.95; }
+    else if(t < 0.85){ col[i*3]=0.5; col[i*3+1]=0.9; col[i*3+2]=0.9; }
+    else { col[i*3]=0.91; col[i*3+1]=0.72; col[i*3+2]=0.47; }
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const mat = new THREE.PointsMaterial({ size, vertexColors:true, transparent:true, opacity, sizeAttenuation:true });
+  return new THREE.Points(geo, mat);
+}
+const starsFar = makeStarLayer(900, 220, 0.4, 0.7);
+const starsMid = makeStarLayer(600, 140, 0.5, 0.85);
+const starsNear = makeStarLayer(300, 80, 0.7, 1);
+scene.add(starsFar);
+scene.add(starsMid);
+scene.add(starsNear);
+
+/* =============================================================
+   DUST MOTES — floating particles for atmosphere
+   ============================================================= */
+function makeDustField(count, size, color, areaSize, position){
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3);
+  const baseY = new Float32Array(count);
+  for(let i=0;i<count;i++){
+    pos[i*3]   = (Math.random()-0.5) * areaSize.x;
+    pos[i*3+1] = Math.random() * areaSize.y;
+    pos[i*3+2] = (Math.random()-0.5) * areaSize.z;
+    baseY[i] = pos[i*3+1];
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const mat = new THREE.PointsMaterial({ size, color, transparent:true, opacity:0.45, sizeAttenuation:true, blending:THREE.AdditiveBlending });
+  const points = new THREE.Points(geo, mat);
+  points.position.copy(position);
+  points.userData.baseY = baseY;
+  return points;
+}
+
+/* =============================================================
+   ACT 1 — PROPERTY BEING SCANNED (z = -40)
+   ============================================================= */
+const propertyGroup = new THREE.Group();
+propertyGroup.position.set(0, -2, -40);
+scene.add(propertyGroup);
+
+const woodFloorMat = new THREE.MeshPhysicalMaterial({
+  color: 0x2A1F12, roughness: 0.65, metalness: 0.05,
+  clearcoat: 0.25, clearcoatRoughness: 0.6,
+});
+const woodFloor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40, 32, 32), woodFloorMat);
+woodFloor.rotation.x = -Math.PI/2;
+woodFloor.receiveShadow = true;
+propertyGroup.add(woodFloor);
+
+const plankGeo = new THREE.BufferGeometry();
+const plankV = [];
+for(let i=-20; i<=20; i+=1.6){
+  plankV.push(i, 0.005, -20, i, 0.005, 20);
+}
+plankGeo.setAttribute('position', new THREE.Float32BufferAttribute(plankV, 3));
+const plankLines = new THREE.LineSegments(plankGeo, new THREE.LineBasicMaterial({ color: 0x14100A, transparent:true, opacity:0.55 }));
+propertyGroup.add(plankLines);
+
+const wallMatWarm = new THREE.MeshPhysicalMaterial({ color: 0x1A1610, roughness: 0.92, metalness: 0.0, clearcoat: 0.05 });
+const backWall = new THREE.Mesh(new THREE.PlaneGeometry(40, 16), wallMatWarm);
+backWall.position.set(0, 8, -10);
+backWall.receiveShadow = true;
+propertyGroup.add(backWall);
+const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 16), wallMatWarm);
+leftWall.rotation.y = Math.PI/2;
+leftWall.position.set(-20, 8, 0);
+leftWall.receiveShadow = true;
+propertyGroup.add(leftWall);
+
+// Window with glass
+const windowFrame = makeWireBox(10, 7, 0.1, wireMat(0xE8B878, 0.6));
+windowFrame.position.set(0, 8, -9.95);
+propertyGroup.add(windowFrame);
+const windowGlass = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 7),
+  new THREE.MeshBasicMaterial({ color: 0xFFD89C, transparent:true, opacity: 0.55 })
+);
+windowGlass.position.set(0, 8, -9.92);
+propertyGroup.add(windowGlass);
+// Window mullion
+const mullion = new THREE.Mesh(
+  new THREE.BoxGeometry(0.06, 7, 0.06),
+  new THREE.MeshStandardMaterial({ color: 0x14100A })
+);
+mullion.position.set(0, 8, -9.85);
+propertyGroup.add(mullion);
+const sunLight = new THREE.PointLight(0xFFD89C, 4.0, 35, 1.6);
+sunLight.position.set(0, 8, -7);
+propertyGroup.add(sunLight);
+
+// Scan wireframe overlay
+const scanBox = makeWireBox(36, 14, 18, wireMat(0x7FE6E6, 0.45));
+scanBox.position.set(0, 7, 0);
+propertyGroup.add(scanBox);
+for(let f=1; f<5; f++){
+  const lineGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(36.01, 0.01, 18.01));
+  const line = new THREE.LineSegments(lineGeo, wireMat(0x7FE6E6, 0.18));
+  line.position.set(0, f*3, 0);
+  propertyGroup.add(line);
+}
+
+// Scan dots
+const scanDotsGeo = new THREE.BufferGeometry();
+const dotPos = new Float32Array(500*3);
+for(let i=0;i<500;i++){
+  dotPos[i*3] = (Math.random()-0.5)*36;
+  dotPos[i*3+1] = Math.random()*14;
+  dotPos[i*3+2] = (Math.random()-0.5)*18;
+}
+scanDotsGeo.setAttribute('position', new THREE.BufferAttribute(dotPos, 3));
+const scanDots = new THREE.Points(scanDotsGeo, new THREE.PointsMaterial({ color: 0x7FE6E6, size: 0.07, transparent:true, opacity:0.7, blending: THREE.AdditiveBlending }));
+propertyGroup.add(scanDots);
+
+// Pulse rings
+const pulseGroup = new THREE.Group();
+for(let i=0;i<3;i++){
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.6, 0.65, 64),
+    new THREE.MeshBasicMaterial({ color: 0x7FE6E6, side: THREE.DoubleSide, transparent:true, opacity:0.7 })
+  );
+  ring.rotation.x = -Math.PI/2;
+  ring.position.set([-8, 0, 6][i], 0.05, [-3, 4, -7][i]);
+  ring.userData.phase = i * 0.7;
+  pulseGroup.add(ring);
+}
+propertyGroup.add(pulseGroup);
+
+// Dust motes in window light
+const propDust = makeDustField(80, 0.06, 0xFFD89C, {x:14, y:12, z:6}, new THREE.Vector3(0, 2, -3));
+propertyGroup.add(propDust);
+
+/* =============================================================
+   ACT 2 — META QUEST FLOATING (replacing stick figure)
+   z = -85
+   ============================================================= */
+const userGroup = new THREE.Group();
+userGroup.position.set(0, 0, -85);
+scene.add(userGroup);
+
+// Floor pad — polished
+const padGeo = new THREE.CircleGeometry(8, 96);
+const padMat = new THREE.MeshPhysicalMaterial({
+  color: 0x1A1610, roughness: 0.4, metalness: 0.3,
+  clearcoat: 0.3, clearcoatRoughness: 0.4,
+});
+const pad = new THREE.Mesh(padGeo, padMat);
+pad.rotation.x = -Math.PI/2;
+pad.receiveShadow = true;
+userGroup.add(pad);
+
+// Pad ring (bright amber)
+const padRing = new THREE.Mesh(
+  new THREE.RingGeometry(7.5, 7.65, 96),
+  new THREE.MeshBasicMaterial({ color: 0xE8B878, transparent:true, opacity:0.7, side: THREE.DoubleSide })
+);
+padRing.rotation.x = -Math.PI/2;
+padRing.position.y = 0.01;
+userGroup.add(padRing);
+
+// Inner concentric rings
+for(let i=1; i<=3; i++){
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(2*i, 2*i + 0.03, 64),
+    new THREE.MeshBasicMaterial({ color: 0x7FE6E6, transparent:true, opacity:0.18 - i*0.04, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = 0.005;
+  userGroup.add(ring);
+}
+
+// === META QUEST HEADSET — floating ===
+const questGroup = new THREE.Group();
+questGroup.position.set(0, 4, 0);
+
+// Visor body
+const visorMat = new THREE.MeshPhysicalMaterial({
+  color: 0x1a1a1c, roughness: 0.25, metalness: 0.4,
+  clearcoat: 1.0, clearcoatRoughness: 0.05,
+});
+const visor = roundedBox(1.4, 0.55, 0.65, 0.12, visorMat);
+questGroup.add(withShadows(visor));
+
+// Front lens panel (the screen face)
+const lensFront = new THREE.Mesh(
+  new THREE.BoxGeometry(1.25, 0.42, 0.05),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x000005, roughness: 0.05, metalness: 0.5,
+    clearcoat: 1.0, clearcoatRoughness: 0.0,
+  })
+);
+lensFront.position.set(0, 0.02, 0.34);
+questGroup.add(lensFront);
+
+// Lens emissive (the LED display glow)
+const lensGlow = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.18, 0.36),
+  new THREE.MeshBasicMaterial({ color: 0x7FE6E6, transparent:true, opacity:0.85 })
+);
+lensGlow.position.set(0, 0.02, 0.37);
+questGroup.add(lensGlow);
+
+// Two lens "eyes" — circular cutouts that glow
+for(let s of [-1, 1]){
+  const eye = new THREE.Mesh(
+    new THREE.CircleGeometry(0.12, 32),
+    new THREE.MeshBasicMaterial({ color: 0xA8F0F0 })
+  );
+  eye.position.set(s * 0.28, 0.02, 0.38);
+  questGroup.add(eye);
+}
+
+// Top accent strip
+const topStrip = new THREE.Mesh(
+  new THREE.BoxGeometry(1.2, 0.04, 0.3),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x2a2a2c, roughness: 0.2, metalness: 0.7, clearcoat: 1
+  })
+);
+topStrip.position.set(0, 0.27, 0.18);
+questGroup.add(topStrip);
+
+// Strap (curved torus)
+const strap = new THREE.Mesh(
+  new THREE.TorusGeometry(0.62, 0.05, 12, 32, Math.PI*1.5),
+  new THREE.MeshStandardMaterial({ color: 0x44424A, roughness: 0.6 })
+);
+strap.rotation.x = Math.PI/2;
+strap.rotation.y = Math.PI/2;
+questGroup.add(strap);
+
+// Side speakers
+for(let s of [-1, 1]){
+  const speaker = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1, 0.1, 0.15, 16),
+    new THREE.MeshPhysicalMaterial({ color: 0x1a1a1c, roughness: 0.3, metalness: 0.6 })
+  );
+  speaker.rotation.z = Math.PI/2;
+  speaker.position.set(s * 0.78, 0, 0);
+  questGroup.add(speaker);
+}
+
+userGroup.add(questGroup);
+
+// Beam from headset to floor
+const beamGeo = new THREE.ConeGeometry(0.8, 4, 32, 1, true);
+const beamMat = new THREE.MeshBasicMaterial({
+  color: 0x7FE6E6, transparent: true, opacity: 0.10, side: THREE.DoubleSide,
+  blending: THREE.AdditiveBlending
+});
+const beam = new THREE.Mesh(beamGeo, beamMat);
+beam.position.set(0, 2, 0);
+userGroup.add(beam);
+
+// Quest light
+const questLight = new THREE.PointLight(0x7FE6E6, 2.5, 14, 1.5);
+questLight.position.set(0, 4, 0.5);
+userGroup.add(questLight);
+
+// Ambient warm fill
+const userKeyLight = new THREE.PointLight(0xE8B878, 1.6, 18, 1.4);
+userKeyLight.position.set(4, 8, 4);
+userGroup.add(userKeyLight);
+
+// Capture dots (point cloud being captured)
+const captureGeo = new THREE.BufferGeometry();
+const capturePos = new Float32Array(350*3);
+for(let i=0;i<350;i++){
+  const r = 1.5 + Math.random()*5.5;
+  const a = Math.random()*Math.PI*2;
+  capturePos[i*3] = Math.cos(a)*r;
+  capturePos[i*3+1] = Math.random()*5.5;
+  capturePos[i*3+2] = Math.sin(a)*r;
+}
+captureGeo.setAttribute('position', new THREE.BufferAttribute(capturePos, 3));
+const captureDots = new THREE.Points(captureGeo, new THREE.PointsMaterial({
+  color: 0x7FE6E6, size: 0.08, transparent:true, opacity:0.65,
+  blending: THREE.AdditiveBlending, sizeAttenuation: true
+}));
+userGroup.add(captureDots);
+
+// Dust around quest
+const userDust = makeDustField(60, 0.05, 0xE8B878, {x:14, y:6, z:14}, new THREE.Vector3(0, 1, 0));
+userGroup.add(userDust);
+
+/* =============================================================
+   ACT 3 — DIGITAL TWIN (refined house)
+   z = -135
+   ============================================================= */
+const twinGroup = new THREE.Group();
+twinGroup.position.set(0, 0, -135);
+scene.add(twinGroup);
+
+// Polished platform
+const twinPlatform = new THREE.Mesh(
+  new THREE.CylinderGeometry(7, 7, 0.3, 96),
+  new THREE.MeshPhysicalMaterial({
+    color: 0x14131C, roughness: 0.25, metalness: 0.55,
+    clearcoat: 0.6, clearcoatRoughness: 0.1,
+  })
+);
+twinPlatform.receiveShadow = true;
+twinGroup.add(twinPlatform);
+
+// Outer ring (amber)
+const twinRing = new THREE.Mesh(
+  new THREE.TorusGeometry(7, 0.06, 16, 100),
+  new THREE.MeshBasicMaterial({ color: 0xE8B878 })
+);
+twinRing.rotation.x = Math.PI/2;
+twinRing.position.y = 0.18;
+twinGroup.add(twinRing);
+
+// Inner concentric ring
+const twinRingInner = new THREE.Mesh(
+  new THREE.TorusGeometry(5, 0.03, 12, 80),
+  new THREE.MeshBasicMaterial({ color: 0x7FE6E6, transparent:true, opacity:0.6 })
+);
+twinRingInner.rotation.x = Math.PI/2;
+twinRingInner.position.y = 0.18;
+twinGroup.add(twinRingInner);
+
+// House model
+const twinModel = new THREE.Group();
+twinModel.position.y = 4;
+const twinScale = 0.7;
+const houseBody = new THREE.Mesh(
+  new THREE.BoxGeometry(8*twinScale, 5*twinScale, 6*twinScale),
+  new THREE.MeshPhysicalMaterial({ color: 0x2A2218, roughness: 0.6, metalness: 0.05, clearcoat: 0.15 })
+);
+houseBody.position.y = 2.5*twinScale;
+houseBody.castShadow = true;
+twinModel.add(houseBody);
+const houseEdges = makeWireBox(8*twinScale, 5*twinScale, 6*twinScale, wireMat(0xE8B878, 0.7));
+houseEdges.position.y = 2.5*twinScale;
+twinModel.add(houseEdges);
+
+// Roof — pitched
+const roof = new THREE.Mesh(
+  new THREE.ConeGeometry(5.7*twinScale, 2.8*twinScale, 4),
+  new THREE.MeshPhysicalMaterial({ color: 0x1A140A, roughness: 0.7, metalness: 0.05 })
+);
+roof.rotation.y = Math.PI/4;
+roof.position.y = (5+1.4)*twinScale;
+roof.castShadow = true;
+twinModel.add(roof);
+const roofEdges = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.ConeGeometry(5.7*twinScale, 2.8*twinScale, 4)),
+  wireMat(0xE8B878, 0.8)
+);
+roofEdges.rotation.y = Math.PI/4;
+roofEdges.position.y = (5+1.4)*twinScale;
+twinModel.add(roofEdges);
+
+// Windows (warm glow)
+for(let s of [-1, 1]){
+  const winFrame = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.6*twinScale, 1.6*twinScale),
+    new THREE.MeshStandardMaterial({ color: 0x14100A, roughness: 0.7 })
+  );
+  winFrame.position.set(s*1.7*twinScale, 2.8*twinScale, 3.001*twinScale);
+  twinModel.add(winFrame);
+  const win = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.4*twinScale, 1.4*twinScale),
+    new THREE.MeshBasicMaterial({ color: 0xFFD89C, transparent:true, opacity:0.95 })
+  );
+  win.position.set(s*1.7*twinScale, 2.8*twinScale, 3.005*twinScale);
+  twinModel.add(win);
+}
+
+// Door
+const doorFrame = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.2*twinScale, 2.0*twinScale),
+  new THREE.MeshStandardMaterial({ color: 0x14100A })
+);
+doorFrame.position.set(0, 1.0*twinScale, 3.001*twinScale);
+twinModel.add(doorFrame);
+const door = new THREE.Mesh(
+  new THREE.PlaneGeometry(1.0*twinScale, 1.8*twinScale),
+  new THREE.MeshPhysicalMaterial({ color: 0x44321E, roughness: 0.4, metalness: 0.1, clearcoat: 0.3 })
+);
+door.position.set(0, 0.95*twinScale, 3.005*twinScale);
+twinModel.add(door);
+const doorHandle = new THREE.Mesh(
+  new THREE.SphereGeometry(0.04, 12, 12),
+  new THREE.MeshPhysicalMaterial({ color: 0xE8B878, metalness: 0.9, roughness: 0.2 })
+);
+doorHandle.position.set(0.3*twinScale, 0.95*twinScale, 3.05*twinScale);
+twinModel.add(doorHandle);
+
+// Chimney
+const chimney = new THREE.Mesh(
+  new THREE.BoxGeometry(0.6*twinScale, 1.5*twinScale, 0.6*twinScale),
+  new THREE.MeshStandardMaterial({ color: 0x44321E, roughness: 0.7 })
+);
+chimney.position.set(2.5*twinScale, 6.4*twinScale, 0);
+twinModel.add(chimney);
+
+twinGroup.add(twinModel);
+
+// Floating tags
+for(let i=0;i<4;i++){
+  const angle = (i/4) * Math.PI*2;
+  const tag = new THREE.Mesh(
+    new THREE.PlaneGeometry(2, 0.5),
+    new THREE.MeshBasicMaterial({ color: 0x7FE6E6, transparent:true, opacity:0.22, side: THREE.DoubleSide })
+  );
+  tag.position.set(Math.cos(angle)*9, 4 + Math.sin(angle*0.5)*1, Math.sin(angle)*9);
+  tag.lookAt(0, 4, 0);
+  tag.userData.angle = angle;
+  twinGroup.add(tag);
+}
+
+const twinLight = new THREE.PointLight(0xE8B878, 2.0, 22, 1.5);
+twinLight.position.set(0, 8, 4);
+twinGroup.add(twinLight);
+const twinRimLight = new THREE.PointLight(0x7FE6E6, 1.4, 22, 1.5);
+twinRimLight.position.set(0, 5, -8);
+twinGroup.add(twinRimLight);
+
+// Dust around twin
+const twinDust = makeDustField(70, 0.05, 0xE8B878, {x:18, y:8, z:18}, new THREE.Vector3(0, 1, 0));
+twinGroup.add(twinDust);
+
+/* =============================================================
+   ACT 4 — GALLERY
+   z = -190
+   ============================================================= */
+const galleryGroup = new THREE.Group();
+galleryGroup.position.set(0, 0, -190);
+scene.add(galleryGroup);
+
+const cardData = [
+  { x:-9, y:8, color:0xE8B878 }, { x: 0, y:8, color:0x7FE6E6 }, { x: 9, y:8, color:0xE8B878 },
+  { x:-9, y:2, color:0x7FE6E6 }, { x: 0, y:2, color:0xE8B878 }, { x: 9, y:2, color:0x7FE6E6 },
+];
+cardData.forEach((d, i) => {
+  const card = new THREE.Group();
+  card.position.set(d.x, d.y, 0);
+  // Glass-like inner panel
+  const inner = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.6, 3.6),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x14100A, roughness: 0.3, metalness: 0.2,
+      clearcoat: 0.8, clearcoatRoughness: 0.1,
+      transparent:true, opacity:0.92
+    })
+  );
+  inner.position.z = 0.01;
+  card.add(inner);
+  const frame = makeWireBox(5, 4, 0.1, wireMat(d.color, 0.6));
+  card.add(frame);
+  const thumb = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.2, 2.4),
+    new THREE.MeshBasicMaterial({ color: d.color, transparent:true, opacity:0.5 })
+  );
+  thumb.position.set(0, 0.4, 0.02);
+  card.add(thumb);
+  const tag = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2, 0.18),
+    new THREE.MeshBasicMaterial({ color: d.color })
+  );
+  tag.position.set(-1.6, -1.2, 0.03);
+  card.add(tag);
+  card.userData.phase = i * 0.4;
+  galleryGroup.add(card);
+});
+
+const galleryLight = new THREE.PointLight(0xE8B878, 2.0, 30, 1.5);
+galleryLight.position.set(0, 5, 8);
+galleryGroup.add(galleryLight);
+
+/* =============================================================
+   ACT 5 — STAGE (the star)
+   z = -245
+   ============================================================= */
+const stageGroup = new THREE.Group();
+stageGroup.position.set(0, 0, -245);
+scene.add(stageGroup);
+
+// Floor — rich wood with subtle reflection
+const stageFloorMat = new THREE.MeshPhysicalMaterial({
+  color: 0x2A1F12, roughness: 0.45, metalness: 0.1,
+  clearcoat: 0.4, clearcoatRoughness: 0.5,
+});
+const stageFloor = new THREE.Mesh(new THREE.PlaneGeometry(28, 28, 32, 32), stageFloorMat);
+stageFloor.rotation.x = -Math.PI/2;
+stageFloor.receiveShadow = true;
+stageGroup.add(stageFloor);
+
+// Plank lines
+const stagePlankGeo = new THREE.BufferGeometry();
+const stagePlankV = [];
+for(let i=-14; i<=14; i+=1.4){
+  stagePlankV.push(i, 0.005, -14, i, 0.005, 14);
+}
+stagePlankGeo.setAttribute('position', new THREE.Float32BufferAttribute(stagePlankV, 3));
+stageGroup.add(new THREE.LineSegments(stagePlankGeo, new THREE.LineBasicMaterial({ color: 0x14100A, transparent:true, opacity:0.45 })));
+
+// Walls
+const stageBackWall = new THREE.Mesh(
+  new THREE.PlaneGeometry(24, 12),
+  new THREE.MeshPhysicalMaterial({ color: 0x1A1610, roughness: 0.92, clearcoat: 0.05 })
+);
+stageBackWall.position.set(0, 6, -8);
+stageBackWall.receiveShadow = true;
+stageGroup.add(stageBackWall);
+
+const stageLeftWall = new THREE.Mesh(
+  new THREE.PlaneGeometry(16, 12),
+  new THREE.MeshPhysicalMaterial({ color: 0x16120E, roughness: 0.92 })
+);
+stageLeftWall.rotation.y = Math.PI/2;
+stageLeftWall.position.set(-8, 6, 0);
+stageLeftWall.receiveShadow = true;
+stageGroup.add(stageLeftWall);
+
+// Window with glass
+const stageWinFrame = new THREE.Mesh(
+  new THREE.PlaneGeometry(7.4, 5.4),
+  new THREE.MeshStandardMaterial({ color: 0x14100A, roughness: 0.6 })
+);
+stageWinFrame.position.set(0, 6, -7.96);
+stageGroup.add(stageWinFrame);
+const stageWindow = new THREE.Mesh(
+  new THREE.PlaneGeometry(7, 5),
+  new THREE.MeshBasicMaterial({ color: 0xFFD89C, transparent:true, opacity:0.85 })
+);
+stageWindow.position.set(0, 6, -7.95);
+stageGroup.add(stageWindow);
+const stageWindowLight = new THREE.PointLight(0xFFD89C, 4.5, 25, 1.5);
+stageWindowLight.position.set(0, 6, -6);
+stageGroup.add(stageWindowLight);
+
+// === SOFA — refined ===
+const sofaFabric = fabricMat(0x6E5642);
+const sofaCushionFabric = fabricMat(0x9A8068);
+const sofaGroup = new THREE.Group();
+sofaGroup.position.set(0, 0, -3);
+
+// Base (rounded)
+const sofaBase = roundedBox(6.4, 0.7, 2.6, 0.18, sofaFabric);
+sofaBase.position.y = 0.4;
+sofaGroup.add(withShadows(sofaBase));
+
+// Backrest
+const sofaBack = roundedBox(6.4, 1.4, 0.7, 0.16, sofaFabric);
+sofaBack.position.set(0, 1.5, -1);
+sofaGroup.add(withShadows(sofaBack));
+
+// Armrests
+for(let s of [-1, 1]){
+  const arm = roundedBox(0.6, 1.2, 2.6, 0.14, sofaFabric);
+  arm.position.set(s * 3.0, 1.0, 0);
+  sofaGroup.add(withShadows(arm));
+}
+
+// Cushions (squishy spheres scaled)
+for(let i=-1;i<=1;i++){
+  const cushion = new THREE.Mesh(
+    new THREE.SphereGeometry(0.95, 24, 16),
+    sofaCushionFabric
+  );
+  cushion.scale.set(1.1, 0.45, 1.1);
+  cushion.position.set(i*1.85, 1.1, 0);
+  cushion.castShadow = true; cushion.receiveShadow = true;
+  sofaGroup.add(cushion);
+}
+
+// Throw pillows on each end
+for(let s of [-1, 1]){
+  const pillow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.4, 20, 14),
+    fabricMat(0xC99A6F)
+  );
+  pillow.scale.set(1.1, 0.45, 0.8);
+  pillow.position.set(s*2.2, 1.6, -0.5);
+  pillow.rotation.z = s * 0.2;
+  pillow.castShadow = true; pillow.receiveShadow = true;
+  sofaGroup.add(pillow);
+}
+
+// Legs (small wooden)
+for(let s of [-1, 1]){
+  for(let dz of [-1, 1]){
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.06, 0.3, 12),
+      woodMat(0x14100A, { roughness: 0.4 })
+    );
+    leg.position.set(s*2.7, 0.05, dz*1.1);
+    leg.castShadow = true;
+    sofaGroup.add(leg);
+  }
+}
+
+stageGroup.add(sofaGroup);
+
+// === COFFEE TABLE ===
+const tableTop = new THREE.Mesh(
+  new THREE.BoxGeometry(2.6, 0.18, 1.4),
+  woodMat(0x44321E, { roughness: 0.35 })
+);
+tableTop.position.set(0, 0.78, -1);
+tableTop.castShadow = true; tableTop.receiveShadow = true;
+stageGroup.add(tableTop);
+// Bevel at edges via small overlay
+for(let dz of [-0.69, 0.69]){
+  const edge = new THREE.Mesh(
+    new THREE.BoxGeometry(2.65, 0.04, 0.05),
+    woodMat(0x554028, { roughness: 0.4 })
+  );
+  edge.position.set(0, 0.7, -1+dz);
+  stageGroup.add(edge);
+}
+for(let dx of [-1.29, 1.29]){
+  const edge = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.04, 1.35),
+    woodMat(0x554028, { roughness: 0.4 })
+  );
+  edge.position.set(dx, 0.7, -1);
+  stageGroup.add(edge);
+}
+// Legs
+for(let dx of [-1, 1]){
+  for(let dz of [-0.5, 0.5]){
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.04, 0.7, 16),
+      woodMat(0x14100A, { roughness: 0.4 })
+    );
+    leg.position.set(dx, 0.36, -1+dz);
+    leg.castShadow = true;
+    stageGroup.add(leg);
+  }
+}
+// Coffee table accent (a book + small candle)
+const book = new THREE.Mesh(
+  new THREE.BoxGeometry(0.8, 0.06, 0.5),
+  fabricMat(0x4D6B3F, { roughness: 0.7 })
+);
+book.position.set(-0.4, 0.91, -1);
+book.castShadow = true;
+stageGroup.add(book);
+const candleBase = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.12, 0.14, 0.22, 16),
+  woodMat(0xC99A6F, { roughness: 0.5 })
+);
+candleBase.position.set(0.6, 0.99, -1);
+candleBase.castShadow = true;
+stageGroup.add(candleBase);
+const flame = new THREE.Mesh(
+  new THREE.SphereGeometry(0.04, 12, 8),
+  new THREE.MeshBasicMaterial({ color: 0xFFD89C })
+);
+flame.position.set(0.6, 1.16, -1);
+stageGroup.add(flame);
+const candleLight = new THREE.PointLight(0xFFD89C, 0.6, 4, 2);
+candleLight.position.set(0.6, 1.16, -1);
+stageGroup.add(candleLight);
+
+// === ACCENT CHAIR ===
+const chairWood = woodMat(0x14100A, { roughness: 0.4 });
+const accentChair = new THREE.Group();
+accentChair.position.set(4, 0, -2);
+accentChair.rotation.y = -Math.PI/4;
+const acSeat = roundedBox(1.5, 0.32, 1.5, 0.1, fabricMat(0xBC8B5A));
+acSeat.position.y = 0.6;
+accentChair.add(withShadows(acSeat));
+const acBack = roundedBox(1.5, 1.5, 0.22, 0.12, fabricMat(0xBC8B5A));
+acBack.position.set(0, 1.35, -0.62);
+accentChair.add(withShadows(acBack));
+for(let dx of [-0.55, 0.55]){
+  for(let dz of [-0.55, 0.55]){
+    const leg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.05, 0.55, 12),
+      chairWood
+    );
+    leg.position.set(dx, 0.28, dz);
+    leg.castShadow = true;
+    accentChair.add(leg);
+  }
+}
+stageGroup.add(accentChair);
+
+// === FLOOR LAMP ===
+const lampPole = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.04, 0.05, 4.2, 16),
+  metalMat(0x2A2228, { roughness: 0.4 })
+);
+lampPole.position.set(5, 2.1, -4);
+lampPole.castShadow = true;
+stageGroup.add(lampPole);
+const lampBase = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.4, 0.45, 0.08, 24),
+  metalMat(0x14100A, { roughness: 0.5 })
+);
+lampBase.position.set(5, 0.04, -4);
+lampBase.castShadow = true;
+stageGroup.add(lampBase);
+const lampShade = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.42, 0.6, 0.95, 24, 1, true),
+  new THREE.MeshPhysicalMaterial({
+    color: 0xFFE4B5, roughness: 0.4, metalness: 0,
+    side: THREE.DoubleSide,
+    transmission: 0.3, opacity: 0.9, transparent: true,
+  })
+);
+lampShade.position.set(5, 4.5, -4);
+stageGroup.add(lampShade);
+// Lamp interior glow (sphere)
+const lampBulb = new THREE.Mesh(
+  new THREE.SphereGeometry(0.2, 16, 12),
+  new THREE.MeshBasicMaterial({ color: 0xFFE4B5 })
+);
+lampBulb.position.set(5, 4.5, -4);
+stageGroup.add(lampBulb);
+const lampLight = new THREE.PointLight(0xFFD89C, 2.5, 14, 1.6);
+lampLight.position.set(5, 4.5, -4);
+lampLight.castShadow = true;
+lampLight.shadow.mapSize.width = 1024;
+lampLight.shadow.mapSize.height = 1024;
+stageGroup.add(lampLight);
+
+// === PENDANT ===
+const pendantCord = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.015, 0.015, 3, 8),
+  new THREE.MeshStandardMaterial({ color: 0x222024 })
+);
+pendantCord.position.set(0, 9, -1);
+stageGroup.add(pendantCord);
+const pendantShape = new THREE.Mesh(
+  new THREE.SphereGeometry(0.32, 24, 18),
+  new THREE.MeshPhysicalMaterial({
+    color: 0xFFD89C, roughness: 0.3, metalness: 0,
+    transmission: 0.4, opacity: 0.92, transparent: true,
+  })
+);
+pendantShape.position.set(0, 7.4, -1);
+stageGroup.add(pendantShape);
+const pendantBulb = new THREE.Mesh(
+  new THREE.SphereGeometry(0.12, 16, 12),
+  new THREE.MeshBasicMaterial({ color: 0xFFD89C })
+);
+pendantBulb.position.set(0, 7.4, -1);
+stageGroup.add(pendantBulb);
+const pendantLight = new THREE.PointLight(0xFFD89C, 1.2, 8, 1.6);
+pendantLight.position.set(0, 7.4, -1);
+stageGroup.add(pendantLight);
+
+// === RUG ===
+const rug = new THREE.Mesh(
+  new THREE.PlaneGeometry(8, 4),
+  fabricMat(0x4D3424, { roughness: 0.9 })
+);
+rug.rotation.x = -Math.PI/2;
+rug.position.set(0, 0.005, -2);
+rug.receiveShadow = true;
+stageGroup.add(rug);
+// Rug border
+const rugBorder = new THREE.Mesh(
+  new THREE.PlaneGeometry(8.2, 4.2),
+  fabricMat(0x6E4E32, { roughness: 0.85 })
+);
+rugBorder.rotation.x = -Math.PI/2;
+rugBorder.position.set(0, 0.001, -2);
+rugBorder.receiveShadow = true;
+stageGroup.add(rugBorder);
+
+// === GHOST CHAIR (being placed in MR) ===
+const ghostChair = new THREE.Group();
+const gcSeat = new THREE.Mesh(
+  new THREE.BoxGeometry(1.3, 0.32, 1.3),
+  new THREE.MeshBasicMaterial({ color: 0x7FE6E6, transparent:true, opacity:0.5, wireframe: true })
+);
+gcSeat.position.y = 0.55;
+ghostChair.add(gcSeat);
+const gcBack = new THREE.Mesh(
+  new THREE.BoxGeometry(1.3, 1.3, 0.2),
+  new THREE.MeshBasicMaterial({ color: 0x7FE6E6, transparent:true, opacity:0.5, wireframe: true })
+);
+gcBack.position.set(0, 1.2, -0.55);
+ghostChair.add(gcBack);
+ghostChair.position.set(-4, 0, -2);
+ghostChair.rotation.y = Math.PI/6;
+stageGroup.add(ghostChair);
+
+// === DECOR — wall art frame ===
+for(let i = 0; i<2; i++){
+  const frame = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.4 + i*0.4, 1.8 + i*0.3),
+    new THREE.MeshStandardMaterial({ color: 0x14100A, roughness: 0.5 })
+  );
+  frame.position.set(-3 + i*1.8, 5, -7.96);
+  stageGroup.add(frame);
+  const art = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.2 + i*0.4, 1.6 + i*0.3),
+    new THREE.MeshBasicMaterial({ color: i === 0 ? 0xC99A6F : 0x4D6B3F, transparent:true, opacity:0.85 })
+  );
+  art.position.set(-3 + i*1.8, 5, -7.95);
+  stageGroup.add(art);
+}
+
+// Side table next to chair
+const sideTableTop = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.45, 0.45, 0.06, 32),
+  metalMat(0xE8B878, { roughness: 0.3 })
+);
+sideTableTop.position.set(5, 1.4, -1.8);
+sideTableTop.castShadow = true;
+stageGroup.add(sideTableTop);
+const sideTablePole = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.04, 0.04, 1.4, 16),
+  metalMat(0x14100A, { roughness: 0.4 })
+);
+sideTablePole.position.set(5, 0.7, -1.8);
+sideTablePole.castShadow = true;
+stageGroup.add(sideTablePole);
+const sideTableBase = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.32, 0.36, 0.04, 24),
+  metalMat(0x14100A)
+);
+sideTableBase.position.set(5, 0.02, -1.8);
+sideTableBase.castShadow = true;
+stageGroup.add(sideTableBase);
+
+// Plant near corner
+const plantPot = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.32, 0.4, 0.6, 24),
+  woodMat(0x44321E, { roughness: 0.6 })
+);
+plantPot.position.set(-6, 0.3, -6);
+plantPot.castShadow = true;
+stageGroup.add(plantPot);
+// Leaves (multiple curved planes)
+for(let i = 0; i<6; i++){
+  const angle = (i/6) * Math.PI*2;
+  const leaf = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.4, 1.2),
+    new THREE.MeshStandardMaterial({ color: 0x4D6B3F, roughness: 0.8, side: THREE.DoubleSide })
+  );
+  leaf.position.set(-6 + Math.cos(angle)*0.15, 0.9 + (i%3)*0.2, -6 + Math.sin(angle)*0.15);
+  leaf.rotation.set(0.2 - (i%3)*0.1, angle, Math.sin(i)*0.3);
+  stageGroup.add(leaf);
+}
+
+// Stage dust motes
+const stageDust = makeDustField(120, 0.05, 0xFFD89C, {x:18, y:8, z:14}, new THREE.Vector3(0, 1, -2));
+stageGroup.add(stageDust);
+
+/* =============================================================
+   ACT 6 — LIBRARY
+   z = -310
+   ============================================================= */
+const libraryGroup = new THREE.Group();
+libraryGroup.position.set(0, 0, -310);
+scene.add(libraryGroup);
+
+const libBg = new THREE.Mesh(
+  new THREE.PlaneGeometry(70, 26),
+  new THREE.MeshPhysicalMaterial({ color: 0x06050A, roughness: 0.6, metalness: 0.1 })
+);
+libBg.position.set(0, 6, -8);
+libraryGroup.add(libBg);
+
+const libCells = [
+  {x:-16, y:9}, {x:-8, y:9}, {x:0, y:9}, {x:8, y:9}, {x:16, y:9},
+  {x:-16, y:2}, {x:-8, y:2}, {x:0, y:2}, {x:8, y:2}, {x:16, y:2},
+];
+libCells.forEach((c, i) => {
+  const cell = new THREE.Group();
+  cell.position.set(c.x, c.y, 0);
+  const border = makeWireBox(7, 6, 0.05, wireMat(0xE8B878, 0.4));
+  cell.add(border);
+  const ped = new THREE.Mesh(
+    new THREE.BoxGeometry(3, 0.3, 3),
+    new THREE.MeshPhysicalMaterial({ color: 0x14100A, metalness: 0.6, roughness: 0.35, clearcoat: 0.5 })
+  );
+  ped.position.y = -1.8;
+  ped.castShadow = true;
+  ped.receiveShadow = true;
+  cell.add(ped);
+  let geo, color;
+  const t = i % 5;
+  if(t === 0) { geo = new THREE.BoxGeometry(1.4, 1.6, 1.4); color = 0xBC8B5A; }
+  else if(t === 1) { geo = new THREE.SphereGeometry(0.9, 32, 24); color = 0x7FE6E6; }
+  else if(t === 2) { geo = new THREE.CylinderGeometry(0.7, 0.9, 1.6, 24); color = 0xE8B878; }
+  else if(t === 3) { geo = new THREE.TorusKnotGeometry(0.6, 0.18, 96, 16); color = 0xC99A6F; }
+  else { geo = new THREE.OctahedronGeometry(1.0, 1); color = 0xD9C3A0; }
+  const product = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({
+    color, metalness: 0.55, roughness: 0.3,
+    clearcoat: 0.6, clearcoatRoughness: 0.2,
+    emissive: color, emissiveIntensity: 0.08,
+  }));
+  product.position.y = -0.4;
+  product.castShadow = true;
+  product.userData.phase = i*0.4;
+  cell.add(product);
+  const glow = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.5, 3.5),
+    new THREE.MeshBasicMaterial({ color, transparent:true, opacity: 0.14, blending: THREE.AdditiveBlending })
+  );
+  glow.position.set(0, 0, -0.5);
+  cell.add(glow);
+  libraryGroup.add(cell);
+});
+
+const libLight1 = new THREE.PointLight(0xE8B878, 1.8, 32, 1.5);
+libLight1.position.set(-8, 6, 4);
+libraryGroup.add(libLight1);
+const libLight2 = new THREE.PointLight(0x7FE6E6, 1.0, 25, 1.5);
+libLight2.position.set(8, 4, 4);
+libraryGroup.add(libLight2);
+
+/* =============================================================
+   ANIMATION LOOP
+   ============================================================= */
+const clock = new THREE.Clock();
+let mouseX = 0, mouseY = 0, smoothMouseX = 0, smoothMouseY = 0;
+window.addEventListener('mousemove', e => {
+  mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+  mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+function animate(){
+  const t = clock.getElapsedTime();
+  smoothMouseX += (mouseX - smoothMouseX) * 0.04;
+  smoothMouseY += (mouseY - smoothMouseY) * 0.04;
+  camera.position.x += (camera.userData.targetX + smoothMouseX * 1.4 - camera.position.x) * 0.05;
+  camera.position.y += (camera.userData.targetY - smoothMouseY * 0.7 - camera.position.y) * 0.05;
+
+  starsFar.rotation.y = t * 0.003;
+  starsMid.rotation.y = t * 0.006;
+  starsNear.rotation.y = t * 0.012;
+  starsNear.rotation.x = t * 0.005;
+
+  // Property
+  propertyGroup.rotation.y = Math.sin(t*0.05) * 0.06;
+  scanDots.rotation.y = t * 0.03;
+  pulseGroup.children.forEach(ring => {
+    const phase = t * 1.4 + ring.userData.phase;
+    const s = 1 + ((phase % 2) * 1.6);
+    ring.scale.set(s, s, 1);
+    ring.material.opacity = Math.max(0, 0.7 - (phase % 2) * 0.35);
+  });
+  // Dust drift
+  if(propDust.userData.baseY){
+    const positions = propDust.geometry.attributes.position.array;
+    for(let i=0;i<propDust.userData.baseY.length;i++){
+      positions[i*3+1] = propDust.userData.baseY[i] + Math.sin(t*0.5 + i*0.3) * 0.3;
+    }
+    propDust.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // Quest — float and gentle bob, slow rotation
+  questGroup.position.y = 4 + Math.sin(t*0.8) * 0.2;
+  questGroup.rotation.y = Math.sin(t*0.4) * 0.4;
+  questGroup.rotation.x = Math.sin(t*0.6) * 0.05;
+  lensGlow.material.opacity = 0.7 + Math.sin(t*2.5) * 0.18;
+  beam.scale.y = 1 + Math.sin(t*0.6) * 0.1;
+  captureDots.rotation.y = t * 0.15;
+  if(userDust.userData.baseY){
+    const positions = userDust.geometry.attributes.position.array;
+    for(let i=0;i<userDust.userData.baseY.length;i++){
+      positions[i*3+1] = userDust.userData.baseY[i] + Math.sin(t*0.4 + i*0.2) * 0.3;
+    }
+    userDust.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // Twin
+  twinModel.rotation.y = t * 0.18;
+  twinGroup.children.forEach(c => {
+    if(c.userData && c.userData.angle !== undefined){
+      c.position.y = 4 + Math.sin(t*0.6 + c.userData.angle) * 0.3;
+    }
+  });
+  twinRingInner.rotation.z = t * 0.4;
+  if(twinDust.userData.baseY){
+    const positions = twinDust.geometry.attributes.position.array;
+    for(let i=0;i<twinDust.userData.baseY.length;i++){
+      positions[i*3+1] = twinDust.userData.baseY[i] + Math.sin(t*0.45 + i*0.25) * 0.3;
+    }
+    twinDust.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // Gallery
+  galleryGroup.children.forEach(card => {
+    if(card.userData.phase !== undefined){
+      card.rotation.y = Math.sin(t*0.4 + card.userData.phase) * 0.05;
+      card.position.y = card.position.y + Math.sin(t*0.6 + card.userData.phase) * 0.001;
+    }
+  });
+
+  // Stage
+  if(ghostChair){
+    const pulse = 0.4 + Math.sin(t*1.5) * 0.3;
+    ghostChair.children.forEach(c => { if(c.material) c.material.opacity = pulse; });
+  }
+  // Candle flicker
+  if(flame && candleLight){
+    const flicker = 0.6 + Math.random() * 0.3;
+    candleLight.intensity = flicker;
+    flame.scale.setScalar(0.9 + Math.random() * 0.2);
+  }
+  if(stageDust.userData.baseY){
+    const positions = stageDust.geometry.attributes.position.array;
+    for(let i=0;i<stageDust.userData.baseY.length;i++){
+      positions[i*3+1] = stageDust.userData.baseY[i] + Math.sin(t*0.4 + i*0.2) * 0.4;
+    }
+    stageDust.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // Library
+  libraryGroup.children.forEach(cell => {
+    if(cell.children && cell.children[2] && cell.children[2].userData.phase !== undefined){
+      const product = cell.children[2];
+      product.position.y = -0.4 + Math.sin(t*1.0 + product.userData.phase) * 0.2;
+      product.rotation.y = t * 0.25 + product.userData.phase;
+      product.rotation.x = Math.sin(t*0.5 + product.userData.phase) * 0.1;
+    }
+  });
+
+  composer.render();
+  requestAnimationFrame(animate);
+}
+
+camera.userData.targetX = 0;
+camera.userData.targetY = 6;
+animate();
+
+/* =============================================================
+   CAMERA PATH
+   ============================================================= */
+const cameraPath = [
+  { t: 0.00, pos: [0, 7, 30],   look: [0, 5, 0] },
+  { t: 0.07, pos: [0, 9, 5],    look: [0, 6, -40] },
+  { t: 0.14, pos: [0, 6, -20],  look: [0, 4, -45] },
+  { t: 0.20, pos: [-12, 12, -30], look: [0, 6, -45] },
+  { t: 0.28, pos: [10, 8, -55],  look: [0, 4, -85] },
+  { t: 0.36, pos: [-6, 5, -75],  look: [0, 4, -85] },
+  { t: 0.42, pos: [4, 4, -78],   look: [0, 4, -85] },
+  { t: 0.50, pos: [0, 6, -120],  look: [0, 4, -135] },
+  { t: 0.56, pos: [-7, 5, -130], look: [0, 4, -135] },
+  { t: 0.64, pos: [0, 7, -175],  look: [0, 5, -190] },
+  { t: 0.74, pos: [0, 4, -230],  look: [0, 3, -245] },
+  { t: 0.80, pos: [-5, 3, -240], look: [3, 3, -245] },
+  { t: 0.88, pos: [0, 6, -290],  look: [0, 6, -310] },
+  { t: 1.00, pos: [0, 14, -360], look: [0, 8, -340] },
+];
+
+function lerpVec(a,b,t){return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];}
+function easeInOut(t){return t<0.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;}
+
+function getCameraAt(progress){
+  for(let i=0; i<cameraPath.length-1; i++){
+    if(progress >= cameraPath[i].t && progress <= cameraPath[i+1].t){
+      const local = (progress - cameraPath[i].t) / (cameraPath[i+1].t - cameraPath[i].t);
+      const eased = easeInOut(local);
+      return {
+        pos: lerpVec(cameraPath[i].pos, cameraPath[i+1].pos, eased),
+        look: lerpVec(cameraPath[i].look, cameraPath[i+1].look, eased),
+      };
+    }
+  }
+  return { pos: cameraPath[cameraPath.length-1].pos, look: cameraPath[cameraPath.length-1].look };
+}
+
+const lookTarget = new THREE.Vector3();
+ScrollTrigger.create({
+  trigger: 'main', start: 'top top', end: 'bottom bottom', scrub: 1.4,
+  onUpdate: (self) => {
+    const p = self.progress;
+    const cam = getCameraAt(p);
+    camera.userData.targetX = cam.pos[0];
+    camera.userData.targetY = cam.pos[1];
+    camera.position.z = cam.pos[2];
+    lookTarget.set(cam.look[0], cam.look[1], cam.look[2]);
+    camera.lookAt(lookTarget);
+    document.getElementById('progress').style.width = (p*100) + '%';
+    const totalActs = 11;
+    const idx = Math.min(totalActs-1, Math.floor(p * totalActs));
+    document.querySelectorAll('.scene-marker .row').forEach((row, i) => {
+      const dot = row.querySelector('.dot');
+      dot.classList.remove('active','passed');
+      row.classList.remove('active');
+      if(i < idx) dot.classList.add('passed');
+      if(i === idx) { dot.classList.add('active'); row.classList.add('active'); }
+    });
+  }
+});
+
+gsap.utils.toArray('[data-anim]').forEach(el => {
+  gsap.from(el, {
+    opacity: 0, y: 60, duration: 1.4, ease: 'power3.out',
+    scrollTrigger: {
+      trigger: el.closest('.act'),
+      start: 'top 80%', end: 'bottom 20%', toggleActions: 'play reverse play reverse',
+    }
+  });
+});
+
+const parallaxEls = document.querySelectorAll('[data-pf]');
+function applyParallax(){
+  parallaxEls.forEach(el => {
+    const factor = parseFloat(el.dataset.pf || '0.05');
+    const rect = el.getBoundingClientRect();
+    if(rect.bottom > -200 && rect.top < window.innerHeight + 200){
+      const sectionCenter = rect.top + rect.height/2;
+      const viewportCenter = window.innerHeight/2;
+      const dist = (viewportCenter - sectionCenter) * factor;
+      const mx = smoothMouseX * factor * 18;
+      const my = smoothMouseY * factor * 10;
+      el.style.transform = `translate3d(${mx}px, ${dist + my}px, 0)`;
+    }
+  });
+  requestAnimationFrame(applyParallax);
+}
+applyParallax();
+
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursor-ring');
+let cx=0, cy=0, rx=0, ry=0;
+window.addEventListener('mousemove', e=>{
+  cx = e.clientX; cy = e.clientY;
+  cursor.style.transform = `translate(${cx}px, ${cy}px) translate(-50%,-50%)`;
+});
+function ringFollow(){
+  rx += (cx - rx) * 0.18;
+  ry += (cy - ry) * 0.18;
+  cursorRing.style.transform = `translate(${rx}px, ${ry}px) translate(-50%,-50%)`;
+  requestAnimationFrame(ringFollow);
+}
+ringFollow();
+document.querySelectorAll('a, button, .chip').forEach(el=>{
+  el.addEventListener('mouseenter', ()=>{cursor.classList.add('hover');cursorRing.classList.add('hover')});
+  el.addEventListener('mouseleave', ()=>{cursor.classList.remove('hover');cursorRing.classList.remove('hover')});
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+window.addEventListener('load', () => {
+  setTimeout(() => { document.getElementById('loader').classList.add('hidden'); }, 800);
+});
+</script>
+
+</body>
+</html>
